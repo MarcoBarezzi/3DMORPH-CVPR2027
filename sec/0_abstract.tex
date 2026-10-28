@@ -1,0 +1,16 @@
+\begin{abstract}
+Morphing transforms one object into another through intermediate states.
+For textured 3D assets, geometry and appearance must evolve together,
+but arbitrary objects have no naturally observed ground-truth transition.
+Recent methods address this problem through training-free procedures built
+on pretrained 3D generators.
+We turn these procedures into a source of supervision rather than the final
+morphing algorithm.
+We introduce \methodname{}, a learned teacher-student framework that uses Interp3D to generate latent pseudo-targets and adapts the two-stage TRELLIS generator through
+conditional flow matching.
+Both stages are conditioned directly on two 3D SLat representations, making source geometry an explicit input rather than inferring it from images alone.
+A learned attention gate controls how the two sources contribute to each
+intermediate asset, while shared training can favor recurring transformation patterns over example-specific teacher artifacts.
+To complement this inductive bias, a frozen TRELLIS prior supplies corrections to student-generated latents.
+The resulting objective combines examples of transitions with a separate generative constraint.
+\end{abstract}
