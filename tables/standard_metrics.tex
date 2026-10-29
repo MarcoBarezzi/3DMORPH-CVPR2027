@@ -1,0 +1,18 @@
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\caption{Comparison on 50 held-out pairs. Values are means; \textbf{bold} and \underline{underline} mark the best and second mean in each column. FID, PPL, LPIPS, and PDV use the Interp Protocol; EPRE and TIME report both protocols. LPIPS, PPL, PDV, and EPRE include canonical endpoints. FID uses the concatenated-state definition. PDV is reported in units of $10^{-3}$. TIME is generation time per sequence in seconds. All metrics are minimized.}
+\label{tab:standard}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+Method & FID $\downarrow$ & PPL $\downarrow$ & LPIPS $\downarrow$ & PDV ($10^{-3}$) $\downarrow$ & \multicolumn{2}{c}{EPRE $\downarrow$} & \multicolumn{2}{c}{TIME (s) $\downarrow$} \\
+\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+& & & & & Interp Protocol & Dense Protocol & Interp Protocol & Dense Protocol \\
+\midrule
+MorphAny3D & \second{95.95} & \best{2.87} & \best{0.118} & $4.88$ & $0.33$ & $0.39$ & \second{182} & $1914$ \\
+Interp3D & $96.02$ & \second{3.31} & \second{0.137} & \second{1.40} & \second{0.27} & \second{0.35} & $188$ & \second{897} \\
+\methodname{} (ours) & \best{95.03} & $3.58$ & $0.148$ & \best{0.85} & \best{0.26} & \best{0.32} & \best{61} & \best{553} \\
+\bottomrule
+\end{tabular}
+\end{table*}

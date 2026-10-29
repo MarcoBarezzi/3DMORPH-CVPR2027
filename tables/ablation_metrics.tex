@@ -1,0 +1,17 @@
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\caption{Ablations under the Interp Protocol. Baseline disables gate, prior, and source swap; component variants enable only the named term, and Full Model uses all three. Final matched-step measurements are pending.}
+\label{tab:ablation}
+\begin{tabular}{lrrrr}
+\toprule
+Variant & FID $\downarrow$ & PPL $\downarrow$ & PDV $\times10^3\!\downarrow$ & EPRE $\downarrow$ \\
+\midrule
+Baseline & 96.54 & \second{3.55} & 0.90 & 0.26 \\
+Gate Only & 102.34 & \best{3.54} & \best{0.84} & 0.26 \\
+Prior Only & \best{91.17} & 3.58 & 0.91 & 0.26 \\
+Full Model & \second{95.03} & 3.58 & \second{0.85} & 0.26 \\
+\bottomrule
+\end{tabular}
+\end{table}

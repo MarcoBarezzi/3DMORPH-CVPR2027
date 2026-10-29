@@ -1,0 +1,21 @@
+# Experiment data and generated assets are not part of the Overleaf project.
+/data/
+
+# Local generation scripts and notes.
+/tools/
+/AUTHOR_NOTES.txt
+/BUILD.txt
+/.vscode/
+
+# LaTeX build artifacts.
+/*.aux
+/*.bbl
+/*.blg
+/*.brf
+/*.fdb_latexmk
+/*.fls
+/*.log
+/*.out
+/*.synctex.gz
+/main.pdf
+/rebuttal.pdf

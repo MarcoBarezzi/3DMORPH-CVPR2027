@@ -1,0 +1,138 @@
+\section{Method}
+\label{sec:method}
+
+Given two textured assets $S_1,S_2$ and a coefficient $\alpha$, the model
+generates an intermediate asset. We use $\alpha=1$ for $S_1$ and
+$\alpha=0$ for $S_2$, so transition progress is $t=1-\alpha$.
+Figure~\ref{fig:architecture} summarizes the teacher-student pipeline.
+
+\begin{figure*}[t]
+ \centering
+ \includegraphics[width=\textwidth]{figures/architecture_overview.pdf}
+ \caption{\textbf{Learning textured 3D morphing.} Interp3D produces latent
+ targets from source pairs and interpolation coefficients. The student
+ encodes each source SLat independently and generates sparse structure and
+ structured features. The right panel shows two evaluations of the same
+ cross-attention on the source conditions, followed by learned gating.
+ Flames mark modules with trainable parameters; snowflakes mark frozen
+ decoders. Dashed supervision connections are used during training.}
+ \label{fig:architecture}
+\end{figure*}
+
+\subsection{Preliminaries}
+\label{sec:preliminaries}
+
+TRELLIS~\cite{xiang2025trellis} represents an asset with structured
+latents (SLat): local feature vectors attached to active voxels of a sparse
+3D grid. The voxel positions describe spatial support, while their
+features encode geometry and appearance. Generation proceeds in two
+stages. A sparse-structure (SS) flow generates a latent that is decoded
+into active voxel positions; a SLat flow then generates features at those
+positions. Both stages use rectified flow transformers, conditioned on
+images or text in the original model. The resulting SLat can be decoded
+into meshes, 3D Gaussian splats~\cite{kerbl2023gaussians}, or radiance
+fields~\cite{mildenhall2020nerf}, providing several output formats from
+the same latent representation. We retain the pretrained decoders and
+use Gaussian renderings for the reported evaluation.
+
+\subsection{Learning from latent pseudo-targets}
+\label{sec:teacher_supervision}
+
+Interp3D~\cite{liu2026interp3d} supplies intermediate SS and SLat
+pseudo-targets for source pairs and interpolation coefficients.
+The student retains both TRELLIS flows but conditions them directly on
+the source assets. An asset encoder processes the features and coordinates
+of each source SLat independently, producing $c_1,c_2$.
+LoRA~\cite{hu2022lora} adapts the pretrained flow parameters, while the
+source encoder and attention gate learn to combine the assets.
+
+Conditional flow matching~\cite{lipman2022flowmatching} trains each flow
+against its teacher latents. Let $z_0$ be a target, $\epsilon$ Gaussian noise,
+and $\tau$ the noise time, distinct from $\alpha$. The training path and
+target velocity are
+\begin{align}
+ z_\tau &=(1-\tau)z_0+
+       [\sigma_{\min}+(1-\sigma_{\min})\tau]\epsilon,\\
+ u_\tau &=(1-\sigma_{\min})\epsilon-z_0,
+\end{align}
+with objective
+\begin{equation}
+ \mathcal L_{\mathrm{FM}}=
+ \mathbb E\|v_\theta(z_\tau,\tau;c_1,c_2,\alpha)-u_\tau\|_2^2.
+\end{equation}
+Sampling integrates the learned field from noise toward the latent data.
+Each teacher example is also presented with exchanged sources and
+coefficient $1-\alpha$, reusing the target to supervise both source orders.
+
+\subsection{Endpoint-preserving attention gating}
+\label{sec:attention_gating}
+
+Both flows use the same source-fusion mechanism. Within an attention
+block, the current tokens $x$ attend to each source condition through
+two evaluations with shared attention parameters:
+\begin{equation}
+ h_1=A_\theta(x,c_1),\qquad h_2=A_\theta(x,c_2).
+\end{equation}
+A token- and channel-wise gate combines the responses:
+\begin{align}
+ \delta &= \operatorname{MLP}(h_1,h_2,\alpha),\\
+ g &= (1-\alpha)+\alpha(1-\alpha)\tanh(\delta),\label{eq:gate}\\
+ x &\leftarrow x+(1-g)\odot h_1+g\odot h_2.
+\end{align}
+The final MLP layer is initialized to zero, so fusion initially reduces
+to $\alpha h_1+(1-\alpha)h_2$. The learned residual adjusts contributions
+within the transition and vanishes at both endpoints. This preserves
+single-source attention at $\alpha=0,1$; it does not impose exact
+reconstruction of the source asset by the full generator.
+
+\subsection{Generative prior}
+\label{sec:generative_prior}
+
+Teacher supervision trains the student to match example transitions.
+The generative prior additionally acts on samples produced by the student
+itself. During training, we start from Gaussian noise $\eta$ and integrate
+the student flow, conditioned on both source assets and $\alpha$, to obtain
+a latent $\hat z=G_\theta(\eta;c_1,c_2,\alpha)$. This procedure is used for
+both stages; the SLat rollout generates features on the training sample's
+sparse support.
+
+We perturb this generated latent with fresh Gaussian noise $\epsilon$
+at a sampled noise time $\tau$:
+\begin{equation}
+ z_\tau=(1-\tau)\operatorname{sg}(\hat z)+\sigma_\tau\epsilon,
+ \qquad \sigma_\tau=\sigma_{\min}+(1-\sigma_{\min})\tau.
+\end{equation}
+The frozen, image-conditioned TRELLIS flow then processes the same
+$z_\tau$ and $\tau$ twice: once conditioned on source image $I_1$, and once
+on $I_2$, using their DINOv2 embeddings~\cite{oquab2023dinov2}. Its predicted
+velocities provide two clean-latent estimates. Local corrections derived
+from these estimates give targets $\tilde z_1,\tilde z_2$ for the same
+student sample. Thus, each TRELLIS evaluation asks how that sample should
+change under one source-image condition.
+
+The source-conditioned regression term of the prior loss is
+\begin{align}
+ \ell_i &=\tfrac12\operatorname{MSE}
+              \big(\hat z,\operatorname{sg}(\tilde z_i)\big),\\
+ \mathcal L_{\mathrm{prior}}^{\mathrm{reg}}
+     &=\mathbb E\big[\alpha\ell_1+(1-\alpha)\ell_2\big].
+\end{align}
+The same coefficient that selects the student morph therefore sets the
+relative influence of the two source-conditioned corrections. At
+$\alpha=1$ only the first regression term contributes; at $\alpha=0$ only
+the second does, while intermediate values combine both. TRELLIS receives
+one source image per evaluation; $\alpha$ combines the resulting losses.
+
+The operator $\operatorname{sg}$ treats the corrected targets as constants
+during backpropagation. Gradients update the student through its final
+sampling steps, while TRELLIS remains frozen. This provides generative
+feedback on the student's own outputs alongside teacher supervision.
+The overall objective is
+\begin{equation}
+ \mathcal L=\mathcal L_{\mathrm{FM}}
+             +\lambda_{\mathrm{prior}}\mathcal L_{\mathrm{prior}}.
+\end{equation}
+Here $\lambda_{\mathrm{prior}}$ controls the strength of the prior
+regularization relative to teacher imitation.
+
+\input{tables/standard_metrics}

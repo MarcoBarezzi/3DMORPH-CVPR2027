@@ -1,0 +1,41 @@
+\section{Experiments}
+\label{sec:experiments}
+
+The comparison uses the same 50  source pairs, and a common Gaussian renderer with matched cameras. The
+Interp Protocol follows Interp3D and contains seven states: two canonical sources and five
+intermediates at deterministic $\operatorname{Beta}(5,5)$ quantiles.
+LPIPS uses 64 views; FID uses 1,000 views per state and two intermediate
+states selected identically for all methods. The Dense Protocol generates
+48 uniform intermediates at $t=k/49$, for 50 states in total, to resolve
+behavior near the endpoints. Only EPRE and generation time are available
+for the Dense Protocol. This evaluates the teacher protocol on our
+pairs, rather than reproducing the Interp3DData leaderboard.
+
+\subsection{Comparison}
+Table~\ref{tab:standard} compares \methodname{},
+MorphAny3D~\cite{sun2026morphany3d}, and Interp3D~\cite{liu2026interp3d}.
+The methods obtain similar FID means. \methodname{} has lower PDV but a
+longer perceptual path, indicating more uniform step magnitudes while
+traversing a greater total distance. Under the Dense Protocol it obtains
+the lowest mean EPRE. Generation time includes preparation and raw-asset
+serialization, excluding one-time model loading and metric rendering.
+
+Figure~\ref{fig:distances50} shows how each method moves away from one
+source and approaches the other. Reading both distances together
+distinguishes a transition that stays close to one source from one that
+departs from both. Figure~\ref{fig:qualitative} complements these averages
+with matched views of geometry and appearance.
+
+\begin{figure*}[t]
+ \centering
+ \includegraphics[width=.94\textwidth]{figures/qualitative_pair_0000.png}\\[3pt]
+ \includegraphics[width=.94\textwidth]{figures/qualitative_pair_0001.png}
+ \caption{\textbf{Textured morphing comparisons.} Each pair has one row per
+ method and a fixed camera (view 025). Columns show seven samples from the
+ dense sequences at $t=0,8/49,16/49,24/49,32/49,40/49,1$.
+ Sources are common canonical assets. These are the first two pairs in
+ the test plan, selected without metric ranking.}
+ \label{fig:qualitative}
+\end{figure*}
+
+\input{sec/6_ablations}

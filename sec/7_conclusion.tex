@@ -1,0 +1,37 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+\methodname{} distills textured 3D morphing into two source-conditioned
+flows with gated attention and a frozen prior. EPRE complements
+distribution and path metrics with source-relative progression.
+The model obtains the lowest EPRE under the Dense Protocol, with trade-offs in path length
+and step variation. Final matched-step ablations remain pending.
+
+\subsection{Limitations}
+\label{sec:limitations}
+
+The student inherits the coverage and biases of its teacher-generated
+training data. The frozen prior supplies another constraint from TRELLIS,
+not ground-truth supervision for a unique morph. Direct SLat conditioning
+also remains limited by the source encoder, sparse representation, and
+frozen decoders. Selecting a single source in the attention gate at an
+endpoint therefore does not guarantee exact reconstruction of that asset.
+
+Each interpolation coefficient is sampled separately. Reusing noise
+across coefficients helps align the generations, but does not guarantee
+continuous geometry or stable topology. Likewise, source-order
+augmentation encourages reversal consistency without enforcing it
+exactly. A sequence-level objective could address these constraints more
+directly.
+
+Our measurements use rendered appearance, which does not establish
+geometric correctness or semantic plausibility. EPRE measures agreement
+with a linear distance profile; a valid nonlinear morph can receive a
+higher error. Since canonical sources are inserted as evaluation
+endpoints, it also does not test endpoint reconstruction. Normalization
+can amplify small distance errors when the two sources are perceptually
+very similar. The present
+comparison covers 50 pairs with fixed checkpoints, rather than variation
+across independent training runs. Final matched-step ablations and broader
+asset coverage are needed to isolate component effects and assess
+generalization.
