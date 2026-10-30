@@ -1,10 +1,9 @@
 \section{Method}
 \label{sec:method}
 
-Given two textured assets $S_1,S_2$ and a coefficient $\alpha$, the model
+Given two textured 3D assets $S_1,S_2$ and a coefficient $\alpha$, the model
 generates an intermediate asset. We use $\alpha=1$ for $S_1$ and
-$\alpha=0$ for $S_2$, so transition progress is $t=1-\alpha$.
-Figure~\ref{fig:architecture} summarizes the teacher-student pipeline.
+$\alpha=0$ for $S_2$.
 
 \begin{figure*}[t]
  \centering
@@ -35,20 +34,30 @@ fields~\cite{mildenhall2020nerf}, providing several output formats from
 the same latent representation. We retain the pretrained decoders and
 use Gaussian renderings for the reported evaluation.
 
+\subsection{Architecture}
+\label{sec:architecture}
+Our proposed architecture (see Fig. \ref{fig:architecture}) leverages a training-free teacher to provide morphing pseudo-targets for training a student. By learning shared morphing patterns across diverse object pairs and by adding specific sample-level generative regularization, the student can generalize beyond individual teacher predictions, reducing teacher-specific artifacts and producing more coherent transitions. 
+
+The student architecture is structured as follows: (a) a TRELLIS backbone finetuned using LoRA~\cite{hu2022lora}, (b) a 3D encoder $\mathcal{E}_{3D}$ providing the conditions for both TRELLIS flows and (c) an attention gate $\mathcal{G}$ which learns to combine the assets.
+
+During training, the teacher supplies intermediate SS and SLat
+pseudo-targets for source pairs and interpolation coefficients. These pseudo pairs are then encoded  independently using the encoder $\mathcal{E}_{3D}$ that adapts them to be compatible with TRELLIS conditioning mechanism and produces the encoded representations $c_1$ and $c_2$. Finally, $\mathcal{G}$ combines these representations using the coefficient $\alpha$.
+
+As teacher, we selected Interp3D~\cite{liu2026interp3d} as it currently represents the best trade off between generation quality and computational efficiency.
+
 \subsection{Learning from latent pseudo-targets}
 \label{sec:teacher_supervision}
 
-Interp3D~\cite{liu2026interp3d} supplies intermediate SS and SLat
-pseudo-targets for source pairs and interpolation coefficients.
-The student retains both TRELLIS flows but conditions them directly on
-the source assets. An asset encoder processes the features and coordinates
-of each source SLat independently, producing $c_1,c_2$.
-LoRA~\cite{hu2022lora} adapts the pretrained flow parameters, while the
-source encoder and attention gate learn to combine the assets.
+% Interp3D~\cite{liu2026interp3d} supplies intermediate SS and SLat
+% pseudo-targets for source pairs and interpolation coefficients.
+% The student retains both TRELLIS flows but conditions them directly on
+% the source assets. An asset encoder processes the features and coordinates
+% of each source SLat independently, producing $c_1,c_2$.
+% LoRA~\cite{hu2022lora} adapts the pretrained flow parameters, while the
+% source encoder and attention gate learn to combine the assets.
 
-Conditional flow matching~\cite{lipman2022flowmatching} trains each flow
-against its teacher latents. Let $z_0$ be a target, $\epsilon$ Gaussian noise,
-and $\tau$ the noise time, distinct from $\alpha$. The training path and
+In order to finetune our student, conditional flow matching~\cite{lipman2022flowmatching} is used to train each flow
+against its teacher latents. Let $z_0$ be a target, $\epsilon$ Gaussian noise, $\tau$ the noise timestep and $\sigma_{\min}$ is a small positive hyperparameter controlling the residual noise at the data endpoint. The training path and
 target velocity are
 \begin{align}
  z_\tau &=(1-\tau)z_0+
@@ -60,9 +69,8 @@ with objective
  \mathcal L_{\mathrm{FM}}=
  \mathbb E\|v_\theta(z_\tau,\tau;c_1,c_2,\alpha)-u_\tau\|_2^2.
 \end{equation}
-Sampling integrates the learned field from noise toward the latent data.
-Each teacher example is also presented with exchanged sources and
-coefficient $1-\alpha$, reusing the target to supervise both source orders.
+% Sampling integrates the learned field from noise toward the latent data.
+To enforce consistency across source orderings, each training example is augmented by swapping the two source assets and replacing $\alpha$ with $1-\alpha$, while retaining the same teacher-generated target.
 
 \subsection{Endpoint-preserving attention gating}
 \label{sec:attention_gating}
