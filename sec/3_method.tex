@@ -74,23 +74,24 @@ To enforce consistency across source orderings, each training example is augment
 
 \subsection{Endpoint-preserving attention gating}
 \label{sec:attention_gating}
+In order to define a fusion mechanism that can both perform the morphing while maintaining exact endpoints reconstruction we defined an attention gating mechanism which is shared in both generation flows.
 
-Both flows use the same source-fusion mechanism. Within an attention
-block, the current tokens $x$ attend to each source condition through
-two evaluations with shared attention parameters:
+Specifically, within each attention block, the current tokens $x$ attend independently to the two source conditions through cross-attention:
 \begin{equation}
  h_1=A_\theta(x,c_1),\qquad h_2=A_\theta(x,c_2).
 \end{equation}
-A token- and channel-wise gate combines the responses:
-\begin{align}
- \delta &= \operatorname{MLP}(h_1,h_2,\alpha),\\
- g &= (1-\alpha)+\alpha(1-\alpha)\tanh(\delta),\label{eq:gate}\\
- x &\leftarrow x+(1-g)\odot h_1+g\odot h_2.
-\end{align}
-The final MLP layer is initialized to zero, so fusion initially reduces
-to $\alpha h_1+(1-\alpha)h_2$. The learned residual adjusts contributions
-within the transition and vanishes at both endpoints. This preserves
-single-source attention at $\alpha=0,1$; it does not impose exact
+
+The two attention responses are then fused through a token- and channel-wise gate:
+\[
+\begin{aligned}
+\delta &= \operatorname{MLP}(h_1,h_2,\alpha),\\
+g &= (1-\alpha)+\alpha(1-\alpha)\tanh(\delta),\\
+x &\leftarrow x+(1-g)\odot h_1+g\odot h_2.
+\end{aligned}
+\]
+
+The MLP is initialized to produce zero outputs, so the fusion initially reduces to \(\alpha h_1+(1-\alpha)h_2\). During training, the learned residual adaptively adjusts the contributions of each source, while the factor \(\alpha(1-\alpha)\) ensures that the correction vanishes at both endpoints, preserving single-source conditioning.
+It does not impose exact
 reconstruction of the source asset by the full generator.
 
 \subsection{Generative prior}
