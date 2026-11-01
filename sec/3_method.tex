@@ -91,8 +91,6 @@ x &\leftarrow x+(1-g)\odot h_1+g\odot h_2.
 \]
 
 The MLP is initialized to produce zero outputs, so the fusion initially reduces to \(\alpha h_1+(1-\alpha)h_2\). During training, the learned residual adaptively adjusts the contributions of each source, while the factor \(\alpha(1-\alpha)\) ensures that the correction vanishes at both endpoints, preserving single-source conditioning.
-It does not impose exact
-reconstruction of the source asset by the full generator.
 
 \subsection{Generative prior}
 \label{sec:generative_prior}
