@@ -39,7 +39,7 @@ Since ground-truth morphing trajectories are not naturally available, we create 
 
 \subsubsection{Architecture}
 \label{sec:architecture}
-Using the dataset described in Sec.~\ref{sec}, we adapt the two-stage generation process of TRELLIS~\cite{xiang2025trellis} to learn 3D morphing transformations directly from the source representations.
+Using the dataset described in Sec.~\ref{sec:dataset_construction}, we adapt the two-stage generation process of TRELLIS~\cite{xiang2025trellis} to learn 3D morphing transformations directly from the source representations.
 
 Given two source assets, the student processes their SLat representations through a shared 3D encoder $\mathcal E_{3D}$, which extracts spatial information from their coordinates and features. The resulting conditioning tokens are projected into the feature space of the pretrained flow transformers:
 
@@ -56,8 +56,32 @@ Starting from the pretrained TRELLIS weights, we adapt both flow models using Lo
 
 %Obtaining intermediate ground-truth assets for arbitrary  morphing sequences is inherently difficult: we address this lack of supervision by using Interp3D~\cite{liu2026interp3d} as a training-free teacher. Given a pair of assets and an interpolation coefficient, the teacher produces a morph that serves as pseudo-target for the corresponding student generation, allowing us to train on a collection of transitions. By learning shared morphing patterns across diverse objects, the student can generalize beyond individual teacher predictions, reducing teacher-specific artifacts and producing more coherent transitions. The student architecture is structured as follows: (a) a TRELLIS backbone finetuned using LoRA~\cite{hu2022lora}, (b) a 3D encoder $\mathcal{E}_{3D}$ providing the conditions for both TRELLIS flows and (c) an attention gate $\mathcal{G}$ which learns to combine the assets. During training, the teacher supplies intermediate SS and SLat pseudo-targets for source pairs and interpolation coefficients. These pseudo pairs are then encoded  independently using the encoder $\mathcal{E}_{3D}$ that adapts them to be compatible with TRELLIS conditioning mechanism and produces the encoded representations $c_1$ and $c_2$. Finally, $\mathcal{G}$ combines these representations using the coefficient $\alpha$. As teacher, we selected Interp3D~\cite{liu2026interp3d} as it currently represents the best trade off between generation quality and computational efficiency.
 
-\subsubsection{Learning from latent pseudo-targets}
-\label{sec:teacher_supervision}
+% \subsubsection{Learning from latent pseudo-targets}
+% \label{sec:teacher_supervision}
+% We train the SS and SLat flows with conditional flow matching~\cite{lipman2022flowmatching}, using the teacher-generated latents as supervision. For either stage, let $z_0$ denote the target latent for a source pair and interpolation coefficient $\alpha$. We sample Gaussian noise $\epsilon\sim\mathcal N(0,I)$ and a noise time $\tau\in[0,1]$, and construct
+% \begin{align}
+%  z_\tau &=(1-\tau)z_0+\sigma_\tau\epsilon,
+%  \label{eq:fm_path}\\
+%  \sigma_\tau &=\sigma_{\min}+(1-\sigma_{\min})\tau,\nonumber\\
+%  u_\tau &=(1-\sigma_{\min})\epsilon-z_0,
+%  \nonumber
+% \end{align}
+% where $\sigma_{\min}$ is a small positive constant controlling the
+% residual noise at the data endpoint. Here, $\tau$ specifies the noise
+% level, whereas $\alpha$ specifies the position along the morphing
+% sequence. The student learns to predict the target velocity $u_\tau$
+% from the perturbed latent and the two source conditions:
+% \begin{equation}
+%  \mathcal L_{\mathrm{FM}}=
+%  \mathbb E\!\left[
+%  \left\|v_\theta(z_\tau,\tau;c_1,c_2,\alpha)-u_\tau\right\|_2^2
+%  \right].
+%  \label{eq:flow_matching}
+% \end{equation}
+% The expectation is over training examples, noise, and noise times.
+% To encourage consistency with respect to source ordering, we also
+% swap the two sources and replace $\alpha$ with $1-\alpha$, retaining
+% the same teacher-generated target.
 
 % Interp3D~\cite{liu2026interp3d} supplies intermediate SS and SLat
 % pseudo-targets for source pairs and interpolation coefficients.
@@ -67,41 +91,80 @@ Starting from the pretrained TRELLIS weights, we adapt both flow models using Lo
 % LoRA~\cite{hu2022lora} adapts the pretrained flow parameters, while the
 % source encoder and attention gate learn to combine the assets.
 
-In order to finetune our student, conditional flow matching~\cite{lipman2022flowmatching} is used to train each flow
-against its teacher latents. Let $z_0$ be a target, $\epsilon$ Gaussian noise, $\tau$ the noise timestep and $\sigma_{\min}$ is a small positive hyperparameter controlling the residual noise at the data endpoint. The training path and
-target velocity are
-\begin{align}
- z_\tau &=(1-\tau)z_0+
-       [\sigma_{\min}+(1-\sigma_{\min})\tau]\epsilon,\\
- u_\tau &=(1-\sigma_{\min})\epsilon-z_0,
-\end{align}
-with objective
-\begin{equation}
- \mathcal L_{\mathrm{FM}}=
- \mathbb E\|v_\theta(z_\tau,\tau;c_1,c_2,\alpha)-u_\tau\|_2^2.
-\end{equation}
-% Sampling integrates the learned field from noise toward the latent data.
-To enforce consistency across source orderings, each training example is augmented by swapping the two source assets and replacing $\alpha$ with $1-\alpha$, while retaining the same teacher-generated target.
+% In order to finetune our student, conditional flow matching~\cite{lipman2022flowmatching} is used to train each flow against its teacher latents. Let $z_0$ be a target, $\epsilon$ Gaussian noise, $\tau$ the noise timestep and $\sigma_{\min}$ is a small positive hyperparameter controlling the residual noise at the data endpoint. The training path and target velocity are
+% \begin{align}
+% z_\tau &=(1-\tau)z_0+
+%       [\sigma_{\min}+(1-\sigma_{\min})\tau]\epsilon,\\
+% u_\tau &=(1-\sigma_{\min})\epsilon-z_0,
+% \end{align}
+% with objective
+% \begin{equation}
+% \mathcal L_{\mathrm{FM}}=
+% \mathbb E\|v_\theta(z_\tau,\tau;c_1,c_2,\alpha)-u_\tau\|_2^2.
+% \end{equation}
+% Sampling integrates the learned field from noise toward the latent data. To enforce consistency across source orderings, each training example is augmented by swapping the two source assets and replacing $\alpha$ with $1-\alpha$, while retaining the same teacher-generated target.
 
-\subsubsection{Endpoint-preserving attention gating}
+\subsubsection{Gate-Adapted Morphing Cross-Attention}
 \label{sec:attention_gating}
-In order to define a fusion mechanism that can both perform the morphing while maintaining exact endpoints reconstruction we defined an attention gating mechanism which is shared in both generation flows.
 
-Specifically, within each attention block, the current tokens $x$ attend independently to the two source conditions through cross-attention:
+We introduce Gate-Adapted Morphing Cross-Attention (GAMCA), which combines the responses of the cross-attention module to the two source conditions through a learnable gate. While the interpolation coefficient $\alpha$ controls the overall balance between the sources, the gate adjusts their relative contributions across latent tokens and feature channels, allowing different parts of the morph to combine source features differently. At $\alpha=0$ and $\alpha=1$, the fusion uses only the corresponding source response. The same mechanism is applied in both the SS and SLat generation stages, where each transformer block processes latent tokens $x\in\mathbb R^{N\times d}$ with a feature dimension of $d=1024$. The SS flow operates on a fixed set of $N=4096$ tokens, whereas the SLat flow processes a variable number of active tokens, determined by the asset's spatial support.
+Two evaluations of the cross-attention module produce source-specific responses:
 \begin{equation}
- h_1=A_\theta(x,c_1),\qquad h_2=A_\theta(x,c_2).
+ h_1=CA(x,c_1),\qquad h_2=CA(x,c_2),
 \end{equation}
+with $h_1,h_2\in\mathbb R^{N\times d}$. The gate combines these responses as
+\begin{equation}
+ \begin{aligned}
+  \delta &=\operatorname{MLP}(h_1,h_2,\alpha),\\
+  g &=(1-\alpha)+\alpha(1-\alpha)\tanh(\delta),\\
+  x &\leftarrow x+(1-g)\odot h_1+g\odot h_2,
+ \end{aligned}
+ \label{eq:attention_gate}
+\end{equation}
+where $\delta$ and $g$ have the same dimensions as $x$, and $\odot$ denotes elementwise multiplication. The MLP is initialized to output zero, so the initial fusion is $\alpha h_1+(1-\alpha)h_2$. During training, the gate learns to adjust this mixture according to the source responses and the current generation state. The factor
+$\alpha(1-\alpha)$ makes the correction vanish at the morphing boundaries: at $\alpha=1$ the attention update is exactly $h_1$, and at $\alpha=0$ it is exactly $h_2$. Endpoint generation therefore uses only the corresponding source condition, while reconstruction is learned through supervision on the endpoint targets.
+% In order to define a fusion mechanism that can both perform the morphing while maintaining exact endpoints reconstruction we defined an attention gating mechanism which is shared in both generation flows.
 
-The two attention responses are then fused through a token- and channel-wise gate:
-\[
-\begin{aligned}
-\delta &= \operatorname{MLP}(h_1,h_2,\alpha),\\
-g &= (1-\alpha)+\alpha(1-\alpha)\tanh(\delta),\\
-x &\leftarrow x+(1-g)\odot h_1+g\odot h_2.
-\end{aligned}
-\]
+% Specifically, within each attention block, the current tokens $x$ attend independently to the two source conditions through cross-attention:
+% \begin{equation}
+%  h_1=A_\theta(x,c_1),\qquad h_2=A_\theta(x,c_2).
+% \end{equation}
 
-The MLP is initialized to produce zero outputs, so the fusion initially reduces to \(\alpha h_1+(1-\alpha)h_2\). During training, the learned residual adaptively adjusts the contributions of each source, while the factor \(\alpha(1-\alpha)\) ensures that the correction vanishes at both endpoints, preserving single-source conditioning.
+% The two attention responses are then fused through a token- and channel-wise gate:
+% \[
+% \begin{aligned}
+% \delta &= \operatorname{MLP}(h_1,h_2,\alpha),\\
+% g &= (1-\alpha)+\alpha(1-\alpha)\tanh(\delta),\\
+% x &\leftarrow x+(1-g)\odot h_1+g\odot h_2.
+% \end{aligned}
+% \]
+
+% The MLP is initialized to produce zero outputs, so the fusion initially reduces to \(\alpha h_1+(1-\alpha)h_2\). During training, the learned residual adaptively adjusts the contributions of each source, while the factor \(\alpha(1-\alpha)\) ensures that the correction vanishes at both endpoints, preserving single-source conditioning.
+\subsubsection{Training and generative-prior regularization}
+\label{sec:teacher_supervision}
+\label{sec:generative_prior}
+
+We train the SS and SLat flows with the standard conditional flow-matching objective~\cite{lipman2022flowmatching}, $\mathcal L_{\mathrm{FM}}$, using the teacher-generated latents for each object pair and interpolation coefficient $\alpha$. To encourage consistency with respect to source ordering, we also swap the two sources and replace $\alpha$ with $1-\alpha$, retaining the same target. To additionally regularize samples generated by the student, we use a separate, frozen copy of the original image-conditioned TRELLIS flow for each stage. This prior uses the source images $I_1$ and $I_2$ from which the training assets $S_1$ and $S_2$ were obtained.
+
+For a source pair and coefficient $\alpha$, we run the student's complete sampling procedure from Gaussian noise, conditioned on $c_1$, $c_2$, and $\alpha$, obtaining a generated latent $\hat z$. We then perturb this output with fresh Gaussian noise at a sampled noise level, following the TRELLIS noise schedule. The frozen flow evaluates the same perturbed latent twice, once conditioned on the DINOv2 embedding~\cite{oquab2023dinov2} of $I_1$ and once on that of $I_2$. Each predicted velocity yields a clean-latent estimate under the corresponding image condition. We clip the displacement from $\hat z$ toward each estimate to obtain nearby regression targets $\tilde z_1$ and $\tilde z_2$.
+
+The prior loss penalizes the discrepancy between the student output and these targets, weighting the two terms according to $\alpha$:
+\begin{equation}
+ \mathcal L_{\mathrm{prior}}=
+ \mathbb E\!\left[
+ \frac{\alpha}{2}\operatorname{MSE}(\hat z,\tilde z_1)
+ +\frac{1-\alpha}{2}\operatorname{MSE}(\hat z,\tilde z_2)
+ \right].
+ \label{eq:prior}
+\end{equation}
+Both source conditions contribute at intermediate coefficients, while only the corresponding source term remains at each endpoint. The targets are treated as fixed when differentiating the loss: gradients pass through $\hat z$ to update the student's trainable modules, without differentiating through the target computation. The original TRELLIS flow remains frozen. 
+
+The complete training objective is
+\begin{equation}
+ \mathcal L=\mathcal L_{\mathrm{FM}}
+ +\lambda_{\mathrm{prior}}\mathcal L_{\mathrm{prior}},
+\end{equation}
+where $\lambda_{\mathrm{prior}}$ balances teacher supervision and generative regularization.
 
 \subsubsection{Generative-prior regularization via frozen flow predictions}
 \label{sec:generative_prior}
@@ -156,4 +219,4 @@ The complete training objective is
 where $\lambda_{\mathrm{prior}}$ controls the influence of the
 generative feedback relative to teacher supervision.
 
-\input{tables/standard_metrics}
+
