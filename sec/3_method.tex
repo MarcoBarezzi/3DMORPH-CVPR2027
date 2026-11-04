@@ -25,7 +25,6 @@ Fig.~\ref{fig:architecture}.
 
 \subsection{Preliminaries}
 \label{sec:preliminaries}
-
 TRELLIS~\cite{xiang2025trellis}represents a 3D
 asset through structured latents (SLat). Instead of encoding an entire
 object in a single vector, SLat associates local feature vectors with the occupied locations of a sparse 3D grid. The active voxel positions describe the object's spatial support, while the features carried by those positions contain information about its geometry and
@@ -33,22 +32,31 @@ appearance. This separation makes it possible to model where an object exists in
 TRELLIS generates this representation in two successive stages, both implemented as rectified-flow transformers. First, a sparse-structure (SS) flow produces a latent representation from which the active voxel positions are decoded. A second flow then generates the SLat features on the resulting support. The original model works with an external condition, such as an image or a text description. Once generated, the SLat representation can be decoded into a mesh, 3D Gaussian splats~\cite{kerbl2023gaussians}, or a radiance field~\cite{mildenhall2020nerf}.
 In this work, we adapt both the SS and SLat flows within the same morphing framework, while preserving their sequential generation order.
 
-\subsection{Architecture}
+\subsection{Framework}
+\subsubsection{Training Dataset Construction}
+\label{sec:dataset_construction}
+Since ground-truth morphing trajectories are not naturally available, we create a teacher-student framework, using Interp3D ~\cite{liu2026interp3d} as a teacher to generate the training data for our student model. Starting from a collection of images, we form 12500 distinct pairs and generate four intermediate morphs for each pair, corresponding to different interpolation coefficients $\alpha\in[0,1]$, including the boundaries to encourage our model to learn how to reconstruct the original objects. For each generated asset, we extract the corresponding SS and SLat representations, which serve as targets for supervising the two stages of our model. Each training example is composed by two source  representations, an interpolation coefficient, and the corresponding teacher-generated SS and SLat latents, allowing the student to learn morphing transformations directly in the TRELLIS latent space.
+
+\subsubsection{Architecture}
 \label{sec:architecture}
-Obtaining intermediate ground-truth assets for arbitrary  morphing sequences is inherently difficult: we address this lack of supervision by using Interp3D~\cite{liu2026interp3d} as a training-free teacher. Given a pair of
-assets and an interpolation coefficient, the teacher produces a morph that serves as
-pseudo-target for the corresponding student generation, allowing us to train
-on a collection of transitions.
-By learning shared morphing patterns across diverse objects, the student can generalize beyond individual teacher predictions, reducing teacher-specific artifacts and producing more coherent transitions. 
+Using the dataset described in Sec.~\ref{sec}, we adapt the two-stage generation process of TRELLIS~\cite{xiang2025trellis} to learn 3D morphing transformations directly from the source representations.
 
-The student architecture is structured as follows: (a) a TRELLIS backbone finetuned using LoRA~\cite{hu2022lora}, (b) a 3D encoder $\mathcal{E}_{3D}$ providing the conditions for both TRELLIS flows and (c) an attention gate $\mathcal{G}$ which learns to combine the assets.
+Given two source assets, the student processes their SLat representations through a shared 3D encoder $\mathcal E_{3D}$, which extracts spatial information from their coordinates and features. The resulting conditioning tokens are projected into the feature space of the pretrained flow transformers:
 
-During training, the teacher supplies intermediate SS and SLat
-pseudo-targets for source pairs and interpolation coefficients. These pseudo pairs are then encoded  independently using the encoder $\mathcal{E}_{3D}$ that adapts them to be compatible with TRELLIS conditioning mechanism and produces the encoded representations $c_1$ and $c_2$. Finally, $\mathcal{G}$ combines these representations using the coefficient $\alpha$.
+\begin{equation}
+c_i \in \mathbb R^{4096\times1024},
+\qquad i\in{1,2}.
+\label{eq}
+\end{equation}
 
-As teacher, we selected Interp3D~\cite{liu2026interp3d} as it currently represents the best trade off between generation quality and computational efficiency.
+The 4096 tokens form a spatially organized $16\times16\times16$ grid, matching the resolution of the SS representation, with positional embeddings encoding their spatial locations. The 1024-dimensional features match the dimensionality of DINOv2 embeddings and the pretrained TRELLIS cross-attention.
 
-\subsection{Learning from latent pseudo-targets}
+Starting from the pretrained TRELLIS weights, we adapt both flow models using LoRA~\cite{hu2022lora}, while learning the 3D encoder and an attention gate $\mathcal G$. At each transformer block, a shared cross-attention module independently attends to the two source conditions, and the gate adaptively combines the resulting responses based on the interpolation coefficient $\alpha$ and the current latent features (Sec.~\ref{sec:attention_gating}).
+
+
+%Obtaining intermediate ground-truth assets for arbitrary  morphing sequences is inherently difficult: we address this lack of supervision by using Interp3D~\cite{liu2026interp3d} as a training-free teacher. Given a pair of assets and an interpolation coefficient, the teacher produces a morph that serves as pseudo-target for the corresponding student generation, allowing us to train on a collection of transitions. By learning shared morphing patterns across diverse objects, the student can generalize beyond individual teacher predictions, reducing teacher-specific artifacts and producing more coherent transitions. The student architecture is structured as follows: (a) a TRELLIS backbone finetuned using LoRA~\cite{hu2022lora}, (b) a 3D encoder $\mathcal{E}_{3D}$ providing the conditions for both TRELLIS flows and (c) an attention gate $\mathcal{G}$ which learns to combine the assets. During training, the teacher supplies intermediate SS and SLat pseudo-targets for source pairs and interpolation coefficients. These pseudo pairs are then encoded  independently using the encoder $\mathcal{E}_{3D}$ that adapts them to be compatible with TRELLIS conditioning mechanism and produces the encoded representations $c_1$ and $c_2$. Finally, $\mathcal{G}$ combines these representations using the coefficient $\alpha$. As teacher, we selected Interp3D~\cite{liu2026interp3d} as it currently represents the best trade off between generation quality and computational efficiency.
+
+\subsubsection{Learning from latent pseudo-targets}
 \label{sec:teacher_supervision}
 
 % Interp3D~\cite{liu2026interp3d} supplies intermediate SS and SLat
@@ -75,7 +83,7 @@ with objective
 % Sampling integrates the learned field from noise toward the latent data.
 To enforce consistency across source orderings, each training example is augmented by swapping the two source assets and replacing $\alpha$ with $1-\alpha$, while retaining the same teacher-generated target.
 
-\subsection{Endpoint-preserving attention gating}
+\subsubsection{Endpoint-preserving attention gating}
 \label{sec:attention_gating}
 In order to define a fusion mechanism that can both perform the morphing while maintaining exact endpoints reconstruction we defined an attention gating mechanism which is shared in both generation flows.
 
@@ -95,7 +103,7 @@ x &\leftarrow x+(1-g)\odot h_1+g\odot h_2.
 
 The MLP is initialized to produce zero outputs, so the fusion initially reduces to \(\alpha h_1+(1-\alpha)h_2\). During training, the learned residual adaptively adjusts the contributions of each source, while the factor \(\alpha(1-\alpha)\) ensures that the correction vanishes at both endpoints, preserving single-source conditioning.
 
-\subsection{Generative-prior regularization via frozen flow predictions}
+\subsubsection{Generative-prior regularization via frozen flow predictions}
 \label{sec:generative_prior}
 
 Teacher supervision provides examples of transitions, but it does not
