@@ -25,37 +25,38 @@ Fig.~\ref{fig:architecture}.
 
 \subsection{Preliminaries}
 \label{sec:preliminaries}
-TRELLIS~\cite{xiang2025trellis} is a 3D generation method which represents 3D
-assets through structured latents (SLat). Instead of encoding an entire
-object in a single vector, SLat associates local feature vectors with the occupied locations of a sparse 3D grid. The active voxel positions describe the object's spatial support, while the features carried by those positions contain information about its geometry and
-appearance. This separation makes it possible to model where an object exists in space and what its local structure looks like.
+%TRELLIS~\cite{xiang2025trellis} is a 3D generation method which represents 3D assets through structured latents (SLat). Instead of encoding an entire object in a single vector, SLat associates local feature vectors with the occupied locations of a sparse 3D grid. The active voxel positions describe the object's spatial support, while the features carried by those positions contain information about its geometry and appearance. This separation makes it possible to model where an object exists in space and what its local structure looks like.
+TRELLIS\cite{xiang2025trellis} generates 3D assets conditioned on images or text using structured latents (SLat). In this representation, each active location of a sparse 3D grid carries local features describing geometry and appearance. The representation therefore separates the asset’s spatial support from the information associated with each occupied location.
 
-TRELLIS generates this representation in two successive stages, both implemented as rectified-flow transformers. First, a sparse-structure (SS) flow produces a latent representation from which the active voxel positions are decoded. A second flow then generates the SLat features on the resulting support. To guide the generation process, TRELLIS works with an external condition, such as an image or a text description. Once generated, the SLat representation can be decoded into a mesh, 3D Gaussian splats~\cite{kerbl2023gaussians}, or a radiance field~\cite{mildenhall2020nerf}.
+To generate these latents, TRELLIS uses two successive transformer-based rectified flows~\cite{xiang2025trellis,liu2023rectifiedflow}. First, the sparse-structure (SS) flow predict a latent from which the occupied grid locations are decoded; conditioned on this support, the SLat flow then generates their local features. For image-conditioned generation, DINOv2~\cite{oquab2023dinov2} encodes the input image into visual tokens that condition both flows through cross-attention. The resulting SLat representation can then be decoded into a mesh, 3D Gaussian splats~\cite{kerbl2023gaussians}, or a radiance field~\cite{mildenhall2020nerf}.
 
-In this work, we adapt both the SS and SLat flows within the same morphing framework, while preserving their sequential generation order.
+Building on this representation, we adapt both the SS and SLat flows within the same morphing framework, adapting them to work with a pair of source 3D assets.
 
 \subsection{Framework}
 \subsubsection{Training Dataset Construction}
 \label{sec:dataset_construction}
-Since ground-truth morphing trajectories are not naturally available, we create a teacher-student framework, using Interp3D ~\cite{liu2026interp3d} as a teacher to generate the training data for our student model. Being Interp3D an image-driven approach, we start from a collection of images forming 12500 distinct pairs and generate four intermediate morphs for each pair, corresponding to different interpolation coefficients $\alpha\in[0,1]$. Boundaries are included to encourage our model to learn how to reconstruct the original objects. Then, for each generated asset, we extract the corresponding SS and SLat representations. %, which serve as targets for supervising the two stages of our model. 
+Since ground-truth morphing trajectories are not naturally available, we developed a teacher-student framework, using Interp3D ~\cite{liu2026interp3d} as a teacher to generate the training data for our student model. Because Interp3D is image-conditioned, we start from 12,500 distinct pairs of source images, from which the corresponding 3D assets $S_1,S_2$ are generated. For each pair, we then produce four morphing samples at different interpolation coefficients $\alpha\in[0,1]$, including $\alpha=0$ and $\alpha=1$ to encourage the student to reconstruct the source objects. Finally, we extract the corresponding SS and SLat representations from each generated asset. %, which serve as targets for supervising the two stages of our model. 
 
-Finally, each training example is composed by two source  representations, an interpolation coefficient, and the corresponding teacher-generated SS and SLat latents.%, allowing the student to learn morphing transformations directly in the TRELLIS latent space.
+Each training example therefore contains the two source SLat representations, an interpolation coefficient, and the teacher-generated SS and SLat latents for that coefficient.%, allowing the student to learn morphing transformations directly in the TRELLIS latent space.
 
 \subsubsection{Architecture}
 \label{sec:architecture}
-We define our student model as follows. Using the dataset described in Sec.~\ref{sec:dataset_construction}, we adapt the two generation flows of TRELLIS~\cite{xiang2025trellis} to learn 3D morphing transformations directly from the source representations.
+% We define our student model as follows. Using the dataset described in Sec.~\ref{sec:dataset_construction}, we adapt the two generation flows of TRELLIS~\cite{xiang2025trellis} to learn 3D morphing transformations directly from the source representations.
 
-Given two source assets, the student processes their SLat representations through a 3D encoder $\mathcal E_{3D}$, which extracts spatial information from their coordinates and features. The resulting conditioning tokens are projected into the feature space of the pretrained flow transformers:
-
+% Given two source assets, the student processes their SLat representations through a 3D encoder $\mathcal E_{3D}$, which extracts spatial information from their coordinates and features. The resulting conditioning tokens are projected into the feature space of the pretrained flow transformers:
+To learn morphing from these training examples, our student adapts the two generation flows of TRELLIS~\cite{xiang2025trellis} to use conditions extracted directly from the source 3D assets. Let $z_i$ denote the SLat coordinates and features of asset $S_i$. A shared encoder $\mathcal E_{3D}$ maps $z_i$ to conditioning tokens $c_i$, replacing the image-derived conditions used by the original flows:
 \begin{equation}
 c_i = \mathcal E_{3D}(S_i),
 \qquad i\in{1,2}.
 \label{eq}
 \end{equation}
 
-\noindent with $c_i\in \mathbb R^{4096\times1024}$. The 4096 tokens are then reshaped to form a spatially organized $16\times16\times16$ grid, matching the resolution of the SS representation, with positional embeddings encoding their spatial locations. The 1024-dimensional features match the dimensionality of DINOv2 embeddings and the pretrained TRELLIS cross-attention.
+\noindent 
+so that the student can generate morphs from the source 3D representations.
 
-Starting from the pretrained TRELLIS weights, we adapt both flow models using LoRA~\cite{hu2022lora}, while learning the 3D encoder and an attention gate $\mathcal G$. At each transformer block, a shared cross-attention module independently attends to the two source conditions, and the gate adaptively combines the resulting responses based on the interpolation coefficient $\alpha$ and the current latent features (Sec.~\ref{sec:attention_gating}).
+Each condition contains 4096 tokens arranged on a $16\times16\times16$ grid matching the resolution of the SS representation, with positional embeddings encoding their spatial locations. The 1024-dimensional features match the dimensionality of the DINOv2 embeddings used to condition the pretrained TRELLIS cross-attention layers.
+
+Starting from the pretrained TRELLIS weights, we optimize LoRA adapters~\cite{hu2022lora} together with the 3D encoder and the gate network used in the Gate-Adapted Morphing Cross-Attention (GAMCA). Within each transformer block, a gate network $\mathcal G$ learns to combine the responses of a shared cross-attention module to the two source conditions, as described in Sec.~\ref{sec:attention_gating}.
 
 
 %Obtaining intermediate ground-truth assets for arbitrary  morphing sequences is inherently difficult: we address this lack of supervision by using Interp3D~\cite{liu2026interp3d} as a training-free teacher. Given a pair of assets and an interpolation coefficient, the teacher produces a morph that serves as pseudo-target for the corresponding student generation, allowing us to train on a collection of transitions. By learning shared morphing patterns across diverse objects, the student can generalize beyond individual teacher predictions, reducing teacher-specific artifacts and producing more coherent transitions. The student architecture is structured as follows: (a) a TRELLIS backbone finetuned using LoRA~\cite{hu2022lora}, (b) a 3D encoder $\mathcal{E}_{3D}$ providing the conditions for both TRELLIS flows and (c) an attention gate $\mathcal{G}$ which learns to combine the assets. During training, the teacher supplies intermediate SS and SLat pseudo-targets for source pairs and interpolation coefficients. These pseudo pairs are then encoded  independently using the encoder $\mathcal{E}_{3D}$ that adapts them to be compatible with TRELLIS conditioning mechanism and produces the encoded representations $c_1$ and $c_2$. Finally, $\mathcal{G}$ combines these representations using the coefficient $\alpha$. As teacher, we selected Interp3D~\cite{liu2026interp3d} as it currently represents the best trade off between generation quality and computational efficiency.
@@ -110,25 +111,26 @@ Starting from the pretrained TRELLIS weights, we adapt both flow models using Lo
 
 \subsubsection{Gate-Adapted Morphing Cross-Attention}
 \label{sec:attention_gating}
+GAMCA combines the responses of the cross-attention module to the two source conditions through a learnable gate. While the interpolation coefficient $\alpha$ controls the overall balance between the sources, the gate adjusts their relative contributions across latent tokens and feature channels, allowing different parts of the morph to combine source features differently. The same mechanism is applied in both the SS and SLat generation stages, where each transformer block processes latent tokens $x\in\mathbb R^{N\times d}$ with $d=1024$.
 
-We introduce Gate-Adapted Morphing Cross-Attention (GAMCA), which combines the responses of the cross-attention module to the two source conditions through a learnable gate. While the interpolation coefficient $\alpha$ controls the overall balance between the sources, the gate adjusts their relative contributions across latent tokens and feature channels, allowing different parts of the morph to combine source features differently. At $\alpha=0$ and $\alpha=1$, the fusion uses only the corresponding source response. The same mechanism is applied in both the SS and SLat generation stages, where each transformer block processes latent tokens $x\in\mathbb R^{N\times d}$ with a feature dimension of $d=1024$.
-
-The SS flow operates on a fixed set of $N=4096$ tokens, whereas the SLat flow processes a variable number of active tokens, determined by the asset's spatial support.
-First of all, two evaluations of the cross-attention module produce source-specific responses:
+The SS flow operates on a fixed set of $N=4096$ tokens, whereas the SLat flow processes a variable number of active tokens, determined by the asset's spatial support at the transformer resolution.
+In either case, the current latent are provided to the cross-attention operator, denoted by $\operatorname{CA}$, which is evaluated separately on the two source conditions:
+% First of all, two evaluations of the cross-attention module produce source-specific responses:
 \begin{equation}
  h_1=CA(x,c_1),\qquad h_2=CA(x,c_2),
 \end{equation}
-with $h_1,h_2\in\mathbb R^{N\times d}$. Then, the gate combines these responses as
+The resulting responses $h1, h2$ are then combined using weights that adapt to their features and to the interpolation coefficient $\alpha$:
 \begin{equation}
  \begin{aligned}
-  \delta &=\operatorname{MLP}(h_1,h_2,\alpha),\\
+  \delta &=\mathcal G(h_1,h_2,\alpha),\\
   g &=(1-\alpha)+\alpha(1-\alpha)\tanh(\delta),\\
   x &\leftarrow x+(1-g)\odot h_1+g\odot h_2,
  \end{aligned}
  \label{eq:attention_gate}
 \end{equation}
-where $\delta$ and $g$ have the same dimensions as $x$, and $\odot$ denotes elementwise multiplication. The MLP is initialized to output zero, so the initial fusion is $\alpha h_1+(1-\alpha)h_2$. During training, the gate learns to adjust this mixture according to the source responses and the current generation state. The factor
-$\alpha(1-\alpha)$ makes the correction vanish at the morphing boundaries: at $\alpha=1$ the attention update is exactly $h_1$, and at $\alpha=0$ it is exactly $h_2$. Endpoint generation therefore uses only the corresponding source condition, while reconstruction is learned through supervision on the endpoint targets.
+where $\mathcal G$ is an MLP that predicts the residual adjustment $\delta$, while $g$ contains the resulting mixing weights. Both $\delta$ and $g$ have the same dimensions as $x$, and $\odot$ denotes elementwise multiplication.
+
+We initialize $\mathcal G$ to output zero, so the fusion initially reduces to $\alpha h_1+(1-\alpha)h_2$. As training progresses, the network learns to adjust this mixture according to the source responses and the current generation state. Because the adjustment is multiplied by $\alpha(1-\alpha)$, it vanishes at $\alpha=0$ and $\alpha=1$, leaving only $h_2$ or $h_1$, respectively. At these coefficient values, generation therefore uses only the corresponding source condition, while reconstruction is learned from the teacher targets.
 % In order to define a fusion mechanism that can both perform the morphing while maintaining exact endpoints reconstruction we defined an attention gating mechanism which is shared in both generation flows.
 
 % Specifically, within each attention block, the current tokens $x$ attend independently to the two source conditions through cross-attention:
@@ -152,7 +154,7 @@ $\alpha(1-\alpha)$ makes the correction vanish at the morphing boundaries: at $\
 
 We train the SS and SLat flows using the standard conditional flow-matching objective~\cite{lipman2022flowmatching}, denoted by $\mathcal L_{\mathrm{FM}}$, with the teacher-generated latents as targets. Each target is associated with a source pair and an interpolation coefficient $\alpha$. During training, we also swap the sources and replace $\alpha$ with $1-\alpha$, keeping the target unchanged to encourage consistency with respect to source ordering.
 
-To complement this supervision, we use a generative prior that acts on samples produced by the student. For each stage, the prior is a separate copy of the original image-conditioned TRELLIS flow, kept frozen throughout training. It uses the source images $I_1$ and $I_2$ from which the training assets $S_1$ and $S_2$ were obtained.
+To complement this supervision, we use a generative prior that acts on samples produced by the student. For each stage, the prior is provided by a separate copy of the original image-conditioned TRELLIS flow, kept frozen throughout training. It uses the source images $I_1$ and $I_2$ from which the training assets $S_1$ and $S_2$ were obtained.
 
 We first generate a latent $\hat z$ by running the student's complete sampling procedure from Gaussian noise, conditioned on $c_1$, $c_2$, and $\alpha$. Once generation is complete, we perturb $\hat z$ with fresh Gaussian noise at a sampled noise level, following the TRELLIS noise schedule. The frozen flow then evaluates this same perturbed sample twice, using the DINOv2 embedding~\cite{oquab2023dinov2} of $I_1$ in one evaluation and that of $I_2$ in the other. Each predicted velocity is converted into an estimate of the clean latent under the corresponding source-image condition. To obtain the regression targets $\tilde z_1$ and $\tilde z_2$, we adjust $\hat z$ toward each estimate. We limit the size of each adjustment so that the targets remain close to the student's generated sample.
 
