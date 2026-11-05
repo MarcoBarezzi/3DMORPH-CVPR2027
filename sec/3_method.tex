@@ -6,7 +6,7 @@ a continuous morphing sequence controlled by an interpolation coefficient
 $\alpha\in[0,1]$, with $\alpha=1$ corresponding to $S_1$ and $\alpha=0$
 to $S_2$. We approach this task through a teacher--student framework
 that transforms training-free morphing predictions into supervision for
-a learnable generative model. By training on morphs produced from many different objects, the student learns a shared morphing process, rather than relying on a fixed interpolation procedure.
+a learnable generative model. By training on morphs produced from many different objects, the student learns a shared morphing function, rather than relying on a fixed interpolation procedure.
 An overview of the proposed framework is shown in
 Fig.~\ref{fig:architecture}.
 
@@ -25,31 +25,35 @@ Fig.~\ref{fig:architecture}.
 
 \subsection{Preliminaries}
 \label{sec:preliminaries}
-TRELLIS~\cite{xiang2025trellis}represents a 3D
-asset through structured latents (SLat). Instead of encoding an entire
+TRELLIS~\cite{xiang2025trellis} is a 3D generation method which represents 3D
+assets through structured latents (SLat). Instead of encoding an entire
 object in a single vector, SLat associates local feature vectors with the occupied locations of a sparse 3D grid. The active voxel positions describe the object's spatial support, while the features carried by those positions contain information about its geometry and
 appearance. This separation makes it possible to model where an object exists in space and what its local structure looks like.
-TRELLIS generates this representation in two successive stages, both implemented as rectified-flow transformers. First, a sparse-structure (SS) flow produces a latent representation from which the active voxel positions are decoded. A second flow then generates the SLat features on the resulting support. The original model works with an external condition, such as an image or a text description. Once generated, the SLat representation can be decoded into a mesh, 3D Gaussian splats~\cite{kerbl2023gaussians}, or a radiance field~\cite{mildenhall2020nerf}.
+
+TRELLIS generates this representation in two successive stages, both implemented as rectified-flow transformers. First, a sparse-structure (SS) flow produces a latent representation from which the active voxel positions are decoded. A second flow then generates the SLat features on the resulting support. To guide the generation process, TRELLIS works with an external condition, such as an image or a text description. Once generated, the SLat representation can be decoded into a mesh, 3D Gaussian splats~\cite{kerbl2023gaussians}, or a radiance field~\cite{mildenhall2020nerf}.
+
 In this work, we adapt both the SS and SLat flows within the same morphing framework, while preserving their sequential generation order.
 
 \subsection{Framework}
 \subsubsection{Training Dataset Construction}
 \label{sec:dataset_construction}
-Since ground-truth morphing trajectories are not naturally available, we create a teacher-student framework, using Interp3D ~\cite{liu2026interp3d} as a teacher to generate the training data for our student model. Starting from a collection of images, we form 12500 distinct pairs and generate four intermediate morphs for each pair, corresponding to different interpolation coefficients $\alpha\in[0,1]$, including the boundaries to encourage our model to learn how to reconstruct the original objects. For each generated asset, we extract the corresponding SS and SLat representations, which serve as targets for supervising the two stages of our model. Each training example is composed by two source  representations, an interpolation coefficient, and the corresponding teacher-generated SS and SLat latents, allowing the student to learn morphing transformations directly in the TRELLIS latent space.
+Since ground-truth morphing trajectories are not naturally available, we create a teacher-student framework, using Interp3D ~\cite{liu2026interp3d} as a teacher to generate the training data for our student model. Being Interp3D an image-driven approach, we start from a collection of images forming 12500 distinct pairs and generate four intermediate morphs for each pair, corresponding to different interpolation coefficients $\alpha\in[0,1]$. Boundaries are included to encourage our model to learn how to reconstruct the original objects. Then, for each generated asset, we extract the corresponding SS and SLat representations. %, which serve as targets for supervising the two stages of our model. 
+
+Finally, each training example is composed by two source  representations, an interpolation coefficient, and the corresponding teacher-generated SS and SLat latents.%, allowing the student to learn morphing transformations directly in the TRELLIS latent space.
 
 \subsubsection{Architecture}
 \label{sec:architecture}
-Using the dataset described in Sec.~\ref{sec:dataset_construction}, we adapt the two-stage generation process of TRELLIS~\cite{xiang2025trellis} to learn 3D morphing transformations directly from the source representations.
+We define our student model as follows. Using the dataset described in Sec.~\ref{sec:dataset_construction}, we adapt the two generation flows of TRELLIS~\cite{xiang2025trellis} to learn 3D morphing transformations directly from the source representations.
 
-Given two source assets, the student processes their SLat representations through a shared 3D encoder $\mathcal E_{3D}$, which extracts spatial information from their coordinates and features. The resulting conditioning tokens are projected into the feature space of the pretrained flow transformers:
+Given two source assets, the student processes their SLat representations through a 3D encoder $\mathcal E_{3D}$, which extracts spatial information from their coordinates and features. The resulting conditioning tokens are projected into the feature space of the pretrained flow transformers:
 
 \begin{equation}
-c_i \in \mathbb R^{4096\times1024},
+c_i = \mathcal E_{3D}(S_i),
 \qquad i\in{1,2}.
 \label{eq}
 \end{equation}
 
-The 4096 tokens form a spatially organized $16\times16\times16$ grid, matching the resolution of the SS representation, with positional embeddings encoding their spatial locations. The 1024-dimensional features match the dimensionality of DINOv2 embeddings and the pretrained TRELLIS cross-attention.
+\noindent with $c_i\in \mathbb R^{4096\times1024}$. The 4096 tokens are then reshaped to form a spatially organized $16\times16\times16$ grid, matching the resolution of the SS representation, with positional embeddings encoding their spatial locations. The 1024-dimensional features match the dimensionality of DINOv2 embeddings and the pretrained TRELLIS cross-attention.
 
 Starting from the pretrained TRELLIS weights, we adapt both flow models using LoRA~\cite{hu2022lora}, while learning the 3D encoder and an attention gate $\mathcal G$. At each transformer block, a shared cross-attention module independently attends to the two source conditions, and the gate adaptively combines the resulting responses based on the interpolation coefficient $\alpha$ and the current latent features (Sec.~\ref{sec:attention_gating}).
 
@@ -107,12 +111,14 @@ Starting from the pretrained TRELLIS weights, we adapt both flow models using Lo
 \subsubsection{Gate-Adapted Morphing Cross-Attention}
 \label{sec:attention_gating}
 
-We introduce Gate-Adapted Morphing Cross-Attention (GAMCA), which combines the responses of the cross-attention module to the two source conditions through a learnable gate. While the interpolation coefficient $\alpha$ controls the overall balance between the sources, the gate adjusts their relative contributions across latent tokens and feature channels, allowing different parts of the morph to combine source features differently. At $\alpha=0$ and $\alpha=1$, the fusion uses only the corresponding source response. The same mechanism is applied in both the SS and SLat generation stages, where each transformer block processes latent tokens $x\in\mathbb R^{N\times d}$ with a feature dimension of $d=1024$. The SS flow operates on a fixed set of $N=4096$ tokens, whereas the SLat flow processes a variable number of active tokens, determined by the asset's spatial support.
-Two evaluations of the cross-attention module produce source-specific responses:
+We introduce Gate-Adapted Morphing Cross-Attention (GAMCA), which combines the responses of the cross-attention module to the two source conditions through a learnable gate. While the interpolation coefficient $\alpha$ controls the overall balance between the sources, the gate adjusts their relative contributions across latent tokens and feature channels, allowing different parts of the morph to combine source features differently. At $\alpha=0$ and $\alpha=1$, the fusion uses only the corresponding source response. The same mechanism is applied in both the SS and SLat generation stages, where each transformer block processes latent tokens $x\in\mathbb R^{N\times d}$ with a feature dimension of $d=1024$.
+
+The SS flow operates on a fixed set of $N=4096$ tokens, whereas the SLat flow processes a variable number of active tokens, determined by the asset's spatial support.
+First of all, two evaluations of the cross-attention module produce source-specific responses:
 \begin{equation}
  h_1=CA(x,c_1),\qquad h_2=CA(x,c_2),
 \end{equation}
-with $h_1,h_2\in\mathbb R^{N\times d}$. The gate combines these responses as
+with $h_1,h_2\in\mathbb R^{N\times d}$. Then, the gate combines these responses as
 \begin{equation}
  \begin{aligned}
   \delta &=\operatorname{MLP}(h_1,h_2,\alpha),\\
@@ -144,11 +150,13 @@ $\alpha(1-\alpha)$ makes the correction vanish at the morphing boundaries: at $\
 \label{sec:teacher_supervision}
 \label{sec:generative_prior}
 
-We train the SS and SLat flows with the standard conditional flow-matching objective~\cite{lipman2022flowmatching}, $\mathcal L_{\mathrm{FM}}$, using the teacher-generated latents for each object pair and interpolation coefficient $\alpha$. To encourage consistency with respect to source ordering, we also swap the two sources and replace $\alpha$ with $1-\alpha$, retaining the same target. To additionally regularize samples generated by the student, we use a separate, frozen copy of the original image-conditioned TRELLIS flow for each stage. This prior uses the source images $I_1$ and $I_2$ from which the training assets $S_1$ and $S_2$ were obtained.
+We train the SS and SLat flows using the standard conditional flow-matching objective~\cite{lipman2022flowmatching}, denoted by $\mathcal L_{\mathrm{FM}}$, with the teacher-generated latents as targets. Each target is associated with a source pair and an interpolation coefficient $\alpha$. During training, we also swap the sources and replace $\alpha$ with $1-\alpha$, keeping the target unchanged to encourage consistency with respect to source ordering.
 
-For a source pair and coefficient $\alpha$, we run the student's complete sampling procedure from Gaussian noise, conditioned on $c_1$, $c_2$, and $\alpha$, obtaining a generated latent $\hat z$. We then perturb this output with fresh Gaussian noise at a sampled noise level, following the TRELLIS noise schedule. The frozen flow evaluates the same perturbed latent twice, once conditioned on the DINOv2 embedding~\cite{oquab2023dinov2} of $I_1$ and once on that of $I_2$. Each predicted velocity yields a clean-latent estimate under the corresponding image condition. We clip the displacement from $\hat z$ toward each estimate to obtain nearby regression targets $\tilde z_1$ and $\tilde z_2$.
+To complement this supervision, we use a generative prior that acts on samples produced by the student. For each stage, the prior is a separate copy of the original image-conditioned TRELLIS flow, kept frozen throughout training. It uses the source images $I_1$ and $I_2$ from which the training assets $S_1$ and $S_2$ were obtained.
 
-The prior loss penalizes the discrepancy between the student output and these targets, weighting the two terms according to $\alpha$:
+We first generate a latent $\hat z$ by running the student's complete sampling procedure from Gaussian noise, conditioned on $c_1$, $c_2$, and $\alpha$. Once generation is complete, we perturb $\hat z$ with fresh Gaussian noise at a sampled noise level, following the TRELLIS noise schedule. The frozen flow then evaluates this same perturbed sample twice, using the DINOv2 embedding~\cite{oquab2023dinov2} of $I_1$ in one evaluation and that of $I_2$ in the other. Each predicted velocity is converted into an estimate of the clean latent under the corresponding source-image condition. To obtain the regression targets $\tilde z_1$ and $\tilde z_2$, we adjust $\hat z$ toward each estimate. We limit the size of each adjustment so that the targets remain close to the student's generated sample.
+
+The prior loss encourages the student output to approach these targets, with $\alpha$ determining the contribution of each source:
 \begin{equation}
  \mathcal L_{\mathrm{prior}}=
  \mathbb E\!\left[
@@ -157,66 +165,113 @@ The prior loss penalizes the discrepancy between the student output and these ta
  \right].
  \label{eq:prior}
 \end{equation}
-Both source conditions contribute at intermediate coefficients, while only the corresponding source term remains at each endpoint. The targets are treated as fixed when differentiating the loss: gradients pass through $\hat z$ to update the student's trainable modules, without differentiating through the target computation. The original TRELLIS flow remains frozen. 
+At $\alpha=1$, only the term associated with $S_1$ remains, while at $\alpha=0$ only the term associated with $S_2$ remains. The targets are treated as fixed during backpropagation: gradients pass through $\hat z$ to update the student's trainable modules, without differentiating through the target computation. The original TRELLIS flow remains frozen.
 
-The complete training objective is
+The overall objective combines teacher supervision and generative regularization:
 \begin{equation}
  \mathcal L=\mathcal L_{\mathrm{FM}}
  +\lambda_{\mathrm{prior}}\mathcal L_{\mathrm{prior}},
 \end{equation}
-where $\lambda_{\mathrm{prior}}$ balances teacher supervision and generative regularization.
+where $\lambda_{\mathrm{prior}}$ controls the contribution of the prior. The frozen flows and source images are needed only during training.
 
-\subsubsection{Generative-prior regularization via frozen flow predictions}
-\label{sec:generative_prior}
+Algorithm~\ref{alg:generative_prior} summarizes the training
+procedure, applied to either the SS or SLat flow.
 
-Teacher supervision provides examples of transitions, but it does not
-directly assess the samples generated by the student. We therefore add a
-generative prior that acts on the student's own outputs during training.
+\begin{algorithm}[t]
+\caption{Training with a frozen generative prior}
+\label{alg:generative_prior}
+\small
+\begin{algorithmic}[1]
+\Require Source conditions $c_1,c_2$, images $I_1,I_2$,
+coefficient $\alpha$
+\Require Frozen TRELLIS flow $T$, teacher-supervised loss
+$\mathcal L_{\mathrm{FM}}$, prior weight $\lambda_{\mathrm{prior}}$
 
-Starting from Gaussian noise $\eta$, we integrate the student flow under
-the two source conditions and the interpolation coefficient, obtaining
-$\hat z=G_\theta(\eta;c_1,c_2,\alpha)$. 
+\Statex \textit{Generate a student sample.}
+\State Generate $\hat z$ by completing student sampling from
+Gaussian noise, conditioned on $(c_1,c_2,\alpha)$
 
-Then, we perturb the generated latent with fresh Gaussian noise $\epsilon$ at
-a sampled noise time $\tau$:
-\begin{equation}
- z_\tau=(1-\tau)\hat z+\sigma_\tau\epsilon,
- \qquad
- \sigma_\tau=\sigma_{\min}+(1-\sigma_{\min})\tau.
-\end{equation}
-The frozen, image-conditioned TRELLIS flow evaluates this same perturbed
-sample twice, using the DINOv2 embedding~\cite{oquab2023dinov2} of $I_1$
-in one evaluation and that of $I_2$ in the other. Each predicted velocity
-provides an estimate of the clean latent under its source-image
-condition. A bounded local correction derived from that estimate defines
-a nearby regression target $\tilde z_i$ for the student sample.
-The two targets therefore express how the same generated asset should
-change under the two source conditions.
+\Statex \textit{Build fixed targets without gradient tracking.}
+\State Sample a noise level $\tau$
+\State Perturb $\hat z$ with fresh Gaussian noise at level $\tau$,
+using the TRELLIS noise schedule, to obtain $\hat z_\tau$
+\For{$i\in\{1,2\}$}
+    \State $v_i \gets
+    T(\hat z_\tau,\tau;\operatorname{DINOv2}(I_i))$
+    \State Convert $v_i$ into a clean-latent estimate $\bar z_i$
+    \State $\Delta_i \gets \bar z_i-\hat z$
+    \If{the magnitude of $\Delta_i$ exceeds its limit}
+        \State Reduce the magnitude of $\Delta_i$,
+        keeping its direction
+    \EndIf
+    \State $\tilde z_i \gets \hat z+\Delta_i$
+\EndFor
 
-The source-conditioned prior loss combines these regression errors:
-\begin{equation}
- \mathcal L_{\mathrm{prior}}=
- \mathbb E\!\left[
- \frac{\alpha}{2}\operatorname{MSE}(\hat z,\tilde z_1)
- +\frac{1-\alpha}{2}\operatorname{MSE}(\hat z,\tilde z_2)
- \right].
- \label{eq:prior}
-\end{equation}
-\noindent, with the interpolation coefficient $\alpha$ setting
-the relative influence of the two source-conditioned corrections. At
-$\alpha=1$ only the first term remains, and at $\alpha=0$ only the
-second remains. TRELLIS receives one source image at a time; the
-interpolation coefficient combines the two losses rather than the image
-embeddings.
-The student's trainable modules are updated, while TRELLIS
-remains frozen.
+\Statex \textit{Compute the loss and update the student.}
+\State $\mathcal L_i \gets
+\tfrac12\operatorname{MSE}(\hat z,\tilde z_i)$,
+for $i\in\{1,2\}$
+\State $\mathcal L_{\mathrm{prior}} \gets
+\alpha\mathcal L_1+(1-\alpha)\mathcal L_2$
+\State $\mathcal L \gets
+\mathcal L_{\mathrm{FM}}
++\lambda_{\mathrm{prior}}\mathcal L_{\mathrm{prior}}$
+\State Update the student's trainable parameters using
+$\mathcal L$, treating $\tilde z_1,\tilde z_2$ as fixed targets
+\end{algorithmic}
+\end{algorithm}
 
-The complete training objective is
-\begin{equation}
- \mathcal L=\mathcal L_{\mathrm{FM}}
- +\lambda_{\mathrm{prior}}\mathcal L_{\mathrm{prior}},
-\end{equation}
-where $\lambda_{\mathrm{prior}}$ controls the influence of the
-generative feedback relative to teacher supervision.
+% \subsubsection{Generative-prior regularization via frozen flow predictions}
+% \label{sec:generative_prior}
+
+% Teacher supervision provides examples of transitions, but it does not
+% directly assess the samples generated by the student. We therefore add a
+% generative prior that acts on the student's own outputs during training.
+
+% Starting from Gaussian noise $\eta$, we integrate the student flow under
+% the two source conditions and the interpolation coefficient, obtaining
+% $\hat z=G_\theta(\eta;c_1,c_2,\alpha)$. 
+
+% Then, we perturb the generated latent with fresh Gaussian noise $\epsilon$ at
+% a sampled noise time $\tau$:
+% \begin{equation}
+%  z_\tau=(1-\tau)\hat z+\sigma_\tau\epsilon,
+%  \qquad
+%  \sigma_\tau=\sigma_{\min}+(1-\sigma_{\min})\tau.
+% \end{equation}
+% The frozen, image-conditioned TRELLIS flow evaluates this same perturbed
+% sample twice, using the DINOv2 embedding~\cite{oquab2023dinov2} of $I_1$
+% in one evaluation and that of $I_2$ in the other. Each predicted velocity
+% provides an estimate of the clean latent under its source-image
+% condition. A bounded local correction derived from that estimate defines
+% a nearby regression target $\tilde z_i$ for the student sample.
+% The two targets therefore express how the same generated asset should
+% change under the two source conditions.
+
+% The source-conditioned prior loss combines these regression errors:
+% \begin{equation}
+%  \mathcal L_{\mathrm{prior}}=
+%  \mathbb E\!\left[
+%  \frac{\alpha}{2}\operatorname{MSE}(\hat z,\tilde z_1)
+%  +\frac{1-\alpha}{2}\operatorname{MSE}(\hat z,\tilde z_2)
+%  \right].
+%  \label{eq:prior}
+% \end{equation}
+% \noindent, with the interpolation coefficient $\alpha$ setting
+% the relative influence of the two source-conditioned corrections. At
+% $\alpha=1$ only the first term remains, and at $\alpha=0$ only the
+% second remains. TRELLIS receives one source image at a time; the
+% interpolation coefficient combines the two losses rather than the image
+% embeddings.
+% The student's trainable modules are updated, while TRELLIS
+% remains frozen.
+
+% The complete training objective is
+% \begin{equation}
+%  \mathcal L=\mathcal L_{\mathrm{FM}}
+%  +\lambda_{\mathrm{prior}}\mathcal L_{\mathrm{prior}},
+% \end{equation}
+% where $\lambda_{\mathrm{prior}}$ controls the influence of the
+% generative feedback relative to teacher supervision.
 
 
