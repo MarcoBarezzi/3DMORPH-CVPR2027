@@ -1,63 +1,114 @@
+
 \section{Metrics}
 \label{sec:endpoint_metrics}
-\begin{figure}[t]
- \centering
- \includegraphics[width=\columnwidth]{figures/endpoint_distances_50.pdf}
- \caption{\textbf{Distances to both sources.} Color identifies the method;
- solid and dashed curves measure LPIPS to source 1 and source 2.
- Each curve averages 64 views over 50 pairs and displays the 48 generated
- intermediates. The canonical endpoint samples are omitted, with no
- connecting segments to $t=0$ or $t=1$.}
- \label{fig:distances50}
-\end{figure}
 
-We adopt the Interp Protocol from our teacher,
-Interp3D~\cite{liu2026interp3d}, reporting FID~\cite{heusel2017fid} and
-Interp3D's adaptation of perceptual path length (PPL)~\cite{karras2019stylegan}.
-We also report perceptual distance variance (PDV) from
-DiffMorpher~\cite{zhang2024diffmorpher}. FID compares concatenated renders
-of two selected intermediates against those of both sources within each pair.
-We also report mean LPIPS~\cite{zhang2018lpips} between consecutive
-states along the complete path, including both canonical sources.
-
-\input{tables/standard_metrics}
+We follow the evaluation protocol of Interp3D~\cite{liu2026interp3d}, reporting FID~\cite{heusel2017fid} to evaluate the distribution of generated states and perceptual path length (PPL)~\cite{karras2019stylegan} to measure the accumulated perceptual variation along the morphing trajectory, normalized by the source distance. Following Interp3D, FID compares concatenated renders of two selected intermediates against those of the two sources. We additionally report perceptual distance variance (PDV)~\cite{zhang2024diffmorpher}, which measures the variability of perceptual distances between consecutive states. PPL and PDV include the canonical endpoints. While these metrics characterize image quality and different properties of the morphing path, they do not explicitly evaluate how the generated states progress relative to the two sources.
 
 \subsection{Endpoint Profile Error}
 \label{sec:epre}
 
-Image quality and local path regularity do not specify where an
-intermediate lies close to its sources as the coefficient changes.
-A sequence can change smoothly while staying close to one source or
-departing from both. Our results illustrate this distinction: similar FID
-and different PPL scores accompany distinct source-distance
-profiles (Table~\ref{tab:standard}). The
-qualitative sequences in Figure~\ref{fig:qualitative} and distance curves
-in Figure~\ref{fig:distances50} motivate examining how each transition
-leaves one source and approaches the other.
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/endpoint_distances_50.png}
+    \caption{\textbf{Perceptual distances to both sources.}
+    Solid and dashed curves show LPIPS distances to the first and second source, respectively. Colors identify the methods. Each curve averages 64 matched views over 50 object pairs and includes 48 generated intermediates. Canonical endpoints are omitted, with no connecting segments to $t=0$ or $t=1$.}
+    \label{fig:distances50}
+\end{figure}
 
-We introduce endpoint profile error (EPRE) to measure this progression.
-Let $M(t)$ be the generated asset at progress $t\in[0,1]$, from $S_1$ to
-$S_2$, and let $d(A,B)$ denote LPIPS averaged over matched camera views.
-We normalize the distance to each source by their mutual distance:
-\begin{equation}
- r_i(t)=\frac{d(M(t),S_i)}{d(S_1,S_2)},\qquad i\in\{1,2\}.
-\end{equation}
-A linear reference moves from distances $(0,1)$ to $(1,0)$, so its values
-at progress $t$ are $(t,1-t)$. Writing $r_i=r_i(t)$, EPRE summarizes the
-deviation from this reference across the transition:
-\begin{equation}
- \epre=\sqrt{\tfrac12\!\int_0^1
-       \big[(r_1-t)^2+(r_2-(1-t))^2\big]\,dt}.
- \label{eq:epre}
-\end{equation}
-Lower values mean closer agreement with the prescribed progression.
-Normalization makes the score relative to the perceptual separation of
-each source pair. We integrate over the sampled states using the
-trapezoidal rule, including the canonical endpoints, and then average
-pair scores.
+To examine this limitation, Figure~\ref{fig:distances50} shows how the perceptual distances from both sources evolve during morphing. Ideally, the distance from the first source should increase while that from the second decreases, with both curves intersecting near the midpoint. However, existing methods exhibit different behaviors. MorphAny3D produces asymmetric curves whose intersection is shifted from the center. Interp3D exhibits a more balanced profile, while our method shows a similar central intersection with greater separation between the source distances near the endpoints. These differences highlight the need to explicitly measure how the transition moves away from one source and approaches the other.
 
-EPRE complements the existing metrics: it describes source-relative
-progression rather than image realism, geometric validity, or a unique
-correct morph. The Dense Protocol samples the same reference more
-densely, exposing behavior near the endpoints that the five central
-intermediates of the Interp Protocol can miss.
+We introduce Endpoint Profile Error (EPRE) to quantify this progression against a linear perceptual reference. Since two objects do not define a unique morphing trajectory, we do not assume that perceptual linearity is the only valid behavior. Instead, we use it as a simple and interpretable reference in which the interpolation coefficient corresponds to a uniform progression between the sources.
+
+Let $M(t)$ denote the generated asset at progress $t\in[0,1]$, from source $S_1$ to $S_2$, and let $d(\cdot,\cdot)$ denote LPIPS averaged over matched camera views. We normalize the distance to each source by their mutual perceptual distance:
+
+\begin{equation}
+    r_i(t)=\frac{d(M(t),S_i)}{d(S_1,S_2)},
+    \qquad i\in\{1,2\}.
+\end{equation}
+
+Under the linear reference, the expected distances are $r_1(t)=t$ and $r_2(t)=1-t$. We define the instantaneous squared profile error as:
+
+\begin{equation}
+    q(t)=\frac{1}{2}\left[
+    (r_1(t)-t)^2+
+    (r_2(t)-(1-t))^2
+    \right].
+    \label{eq:profile_error}
+\end{equation}
+
+EPRE aggregates this deviation along the complete trajectory:
+
+\begin{equation}
+    \epre=\sqrt{\int_0^1 q(t)\,dt}.
+    \label{eq:epre}
+\end{equation}
+
+We approximate the integral using the trapezoidal rule and then average the resulting EPRE scores across object pairs. Normalization makes the measure relative to the perceptual separation of each source pair, while lower EPRE indicates closer agreement with the linear reference. EPRE complements existing metrics by measuring source-relative progression.
+%rather than image realism, geometric validity, or the correctness of a particular morphing trajectory.
+
+Figure~\ref{fig:epre_profile} shows how the squared profile error varies along the transition. Our method achieves lower errors over most of the trajectory, particularly near the endpoints, while remaining comparable to Interp3D around the midpoint. Table~\ref{tab:standard} reports the aggregated EPRE scores under two evaluation protocols. The Interp Protocol uses five intermediate states, whereas the Dense Protocol evaluates 48 intermediates, providing a more detailed assessment of progression throughout the transition.
+
+
+% \section{Metrics}
+% \label{sec:endpoint_metrics}
+% \begin{figure}[t]
+%  \centering
+%  \includegraphics[width=\columnwidth]{figures/endpoint_distances_50.pdf}
+%  \caption{\textbf{Distances to both sources.} Color identifies the method;
+%  solid and dashed curves measure LPIPS to source 1 and source 2.
+%  Each curve averages 64 views over 50 pairs and displays the 48 generated
+%  intermediates. The canonical endpoint samples are omitted, with no
+%  connecting segments to $t=0$ or $t=1$.}
+%  \label{fig:distances50}
+% \end{figure}
+
+% We adopt the Interp Protocol from our teacher,
+% Interp3D~\cite{liu2026interp3d}, reporting FID~\cite{heusel2017fid} and
+% Interp3D's adaptation of perceptual path length (PPL)~\cite{karras2019stylegan}.
+% We also report perceptual distance variance (PDV) from
+% DiffMorpher~\cite{zhang2024diffmorpher}. FID compares concatenated renders
+% of two selected intermediates against those of both sources within each pair.
+% We also report mean LPIPS~\cite{zhang2018lpips} between consecutive
+% states along the complete path, including both canonical sources.
+
+% \input{tables/standard_metrics}
+
+% \subsection{Endpoint Profile Error}
+% \label{sec:epre}
+
+% Image quality and local path regularity do not specify where an
+% intermediate lies close to its sources as the coefficient changes.
+% A sequence can change smoothly while staying close to one source or
+% departing from both. Our results illustrate this distinction: similar FID
+% and different PPL scores accompany distinct source-distance
+% profiles (Table~\ref{tab:standard}). The
+% qualitative sequences in Figure~\ref{fig:qualitative} and distance curves
+% in Figure~\ref{fig:distances50} motivate examining how each transition
+% leaves one source and approaches the other.
+
+% We introduce endpoint profile error (EPRE) to measure this progression.
+% Let $M(t)$ be the generated asset at progress $t\in[0,1]$, from $S_1$ to
+% $S_2$, and let $d(A,B)$ denote LPIPS averaged over matched camera views.
+% We normalize the distance to each source by their mutual distance:
+% \begin{equation}
+%  r_i(t)=\frac{d(M(t),S_i)}{d(S_1,S_2)},\qquad i\in\{1,2\}.
+% \end{equation}
+% A linear reference moves from distances $(0,1)$ to $(1,0)$, so its values
+% at progress $t$ are $(t,1-t)$. Writing $r_i=r_i(t)$, EPRE summarizes the
+% deviation from this reference across the transition:
+% \begin{equation}
+%  \epre=\sqrt{\tfrac12\!\int_0^1
+%        \big[(r_1-t)^2+(r_2-(1-t))^2\big]\,dt}.
+%  \label{eq:epre}
+% \end{equation}
+% Lower values mean closer agreement with the prescribed progression.
+% Normalization makes the score relative to the perceptual separation of
+% each source pair. We integrate over the sampled states using the
+% trapezoidal rule, including the canonical endpoints, and then average
+% pair scores.
+
+% EPRE complements the existing metrics: it describes source-relative
+% progression rather than image realism, geometric validity, or a unique
+% correct morph. The Dense Protocol samples the same reference more
+% densely, exposing behavior near the endpoints that the five central
+% intermediates of the Interp Protocol can miss.
