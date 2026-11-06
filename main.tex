@@ -46,9 +46,19 @@ First line of institution2 address\\
 }
 
 \begin{document}
-\maketitle
+\twocolumn[{%
+    \renewcommand\twocolumn[1][]{#1}%
+    \maketitle
+
+    \centering
+    \includegraphics[width=\textwidth]{figures/main_figure.png}
+    \captionof{figure}{Morphing results obtained with \methodname, alpha refers to source.}
+    \label{fig:main}
+    \vspace{1em}
+}]
 \input{sec/0_abstract}    
 \input{sec/1_intro}
+
 \input{sec/2_related_work}
 \input{sec/3_method}
 \input{sec/4_endpoint_metrics}
