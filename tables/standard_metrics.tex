@@ -3,18 +3,18 @@
 \small
 \setlength{\tabcolsep}{3pt}
 
-\caption{Comparison on 50 held-out pairs. Bold and underline indicate the best and second-best results. FID, PPL, and PDV use the Interp Protocol; EPRE and TIME report both protocols. PPL, PDV, and EPRE include canonical endpoints. FID uses concatenated states; PDV is in units of $10^{-3}$. TIME (s) includes preparation and serialization, starting from GLBs for ours and images for the baselines, and excludes model loading and metric rendering. All metrics are minimized.}
+\caption{Comparison on 50 held-out pairs. Bold and underline indicate the best and second-best results. FID, PPL, PDV use the Interp Protocol; EPRE and report both protocols; TIME refers to a single morphing generation with 5 intermediate states and includes preparation and serialization, starting from GLBs for ours and images for the baselines.}
 
 \label{tab:standard}
-\begin{tabular}{lrrrrrrr}
+\begin{tabular}{lrrrrrr}
 \toprule
-Method & FID $\downarrow$ & PPL $\downarrow$  & PDV ($10^{-3}$) $\downarrow$ & \multicolumn{2}{c}{EPRE $\downarrow$} & \multicolumn{2}{c}{TIME (s) $\downarrow$} \\
-\cmidrule(lr){5-6}\cmidrule(lr){7-8}
-& & & &  Interp Protocol & Dense Protocol & Interp Protocol & Dense Protocol \\
+Method & FID $\downarrow$ & PPL $\downarrow$  & PDV ($10^{-3}$) $\downarrow$ & \multicolumn{2}{c}{EPRE $\downarrow$} & TIME (s) $\downarrow$ \\
+\cmidrule(lr){5-6}
+& & & &  Interp Protocol & Dense Protocol &  \\
 \midrule
-MorphAny3D & \second{95.95} & \best{2.87} & $4.88$ & $0.33$ & $0.39$ & \second{182} & $1914$ \\
-Interp3D & $96.02$ & \second{3.31} & \second{1.40} & \second{0.27} & \second{0.35} & $188$ & \second{897} \\
-\methodname{} (ours) & \best{95.03} & $3.58$ & \best{0.85} & \best{0.25} & \best{0.31} & \best{61} & \best{553} \\
+MorphAny3D & \second{95.95} & \best{2.87} & $4.88$ & $0.33$ & $0.39$ & 306 \\
+Interp3D & $96.02$ & \second{3.31} & \second{1.40} & \second{0.27} & \second{0.35} & $\second{235}$ \\
+\methodname{} (ours) & \best{95.03} & $3.58$ & \best{0.85} & \best{0.25} & \best{0.31} & \best{73}  \\
 \bottomrule
 \end{tabular}
 \end{table*}
