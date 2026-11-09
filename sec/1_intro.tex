@@ -10,7 +10,7 @@ Despite these limitations, training-free methods can provide a large number of p
 
 To realize this idea, we introduce \methodname{}, a teacher-student trainable framework for textured 3D morphing. We use Interp3D as a teacher to generate morphing pseudo-targets of two source objects.% for the two stages of TRELLIS~\cite{xiang2025trellis}. 
 Then, we define a student model that adapts TRELLIS generation process and learn to combine information from both sources using the teacher supervision. %that retains TRELLIS's two-stage generation process but learns to combine information from both source objects. 
-Unlike image-driven approaches, our framework conditions directly on the 3D SLat representations of the sources, avoiding the need to reconstruct their geometry from images and the associated ambiguities in unobserved regions. 
+Unlike image-driven approaches, our framework conditions directly on the 3D representations of the sources, avoiding the need to reconstruct their geometry from images and the associated ambiguities in unobserved regions. 
 
 However, teacher-generated pseudo-targets may still contain artifacts that could be transferred to the student during training. To mitigate this issue, we introduce a frozen TRELLIS-based generative prior that provides an additional regularization signal, encouraging the student to produce plausible intermediate states rather than merely reproducing the teacher's outputs.
 
@@ -20,90 +20,9 @@ The main contributions of this paper are summarized as follows:
 \begin{itemize}
     \item We introduce \methodname{}, a teacher-student framework that learns textured 3D morphing from training-free pseudo-trajectories, without requiring exact ground-truth morphing sequences.
 
-    \item We propose a two-stage morphing architecture that conditions directly on the 3D SLat representations of both source objects, using learned attention fusion to adapt their contributions throughout the transition.
+    \item We propose a two-stage morphing architecture that conditions directly on the 3D representations of both source objects, using learned attention fusion to adapt their contributions throughout the transition.
 
     \item We introduce a generative regularization strategy based on a frozen TRELLIS prior, complementing teacher supervision to encourage plausible intermediate states.
 
     \item We propose Endpoint Profile Error (EPRE), a source-normalized metric that evaluates perceptual progression along morphing trajectories, complementing existing quality and smoothness metrics.
 \end{itemize}
-
-
-
-% Morphing transforms one 3D object into another through a sequence of intermediate
-% states, with applications in animation, visual effects, and 3D content creation.
-% For textured 3D objects, a good transition must change geometry and
-% appearance together while preserving plausible intermediate states, yet, two objects do not determine a unique transition, and collections of
-% individual assets do not supply the intermediate states needed for training.
-
-% Recent approaches tackle textured morphing with pretrained 3D models such as
-% TRELLIS~\cite{xiang2025trellis} which represents an asset as sparse spatial support
-% and structured latent features (SLat).
-% Building on this representation, WUKONG~\cite{yin2025wukong} interpolates
-% conditioning features using optimal transport,
-% Interp3D~\cite{liu2026interp3d} aligns semantics, structure, and appearance,
-% and MorphAny3D~\cite{sun2026morphany3d} combines source and preceding-frame
-% features through attention.
-% Unlike earlier learned shape interpolation~\cite{eisenberger2021neuromorph},
-% these recent textured morphing methods are training-free: they reuse a
-% pretrained generator without learning the morphing task.
-% Their procedures can respond to the input pair, but the rules that combine
-% the sources are not optimized across a collection of morphing examples.
-
-% A second issue is how the source geometry enters the morphing process.
-% In their image-driven setting, these methods obtain 3D endpoints
-% from images, leaving depth and unseen surfaces to the generator.
-% Interp3D also uses SLat geometry, but this is extracted from its generated
-% endpoints~\cite{liu2026interp3d}.
-% MorphAny3D supports real assets through inversion, although reconstruction
-% errors can limit source fidelity~\cite{sun2026morphany3d}.
-% This motivates conditioning directly on the two 3D assets whose geometry
-% we want to preserve, rather than relying on their image-conditioned
-% reconstruction.
-
-% Our key idea is that a training-free method can supply useful examples without
-% being the final model of how objects should morph.
-% Instead of applying its procedure independently to each new pair,
-% we use its outputs to learn a shared generator conditioned on two 3D assets.
-% This makes source fusion trainable across objects and interpolation
-% coefficients.
-% The same parameters must explain many transitions, creating an opportunity
-% to keep recurring patterns while suppressing some example-specific artifacts:
-% we view this as a potential regularizing effect of shared learning.
-% The question is therefore not only whether the teacher can be imitated,
-% but whether its output can be improved.
-
-% We introduce \methodname{}, a trainable teacher-student framework for textured 3D morphing.
-% Interp3D serves as a teacher because its correspondence-aware
-% procedure addresses both structure and appearance.
-% Its TRELLIS representation also makes the intermediate structure and feature
-% latents directly available as stage-specific targets.
-% We train on many source pairs and interpolation coefficients, and reuse each
-% target after exchanging the sources and reversing the coefficient to
-% encourage consistent treatment of source order.
-
-% The student retains TRELLIS's two-stage generation process but conditions
-% both stages directly on the two source SLat representations.
-% These can be cached latents of generated assets or encodings of existing
-% meshes. In either case, the encoded geometry is already available to the
-% model, including surfaces not visible in a single view.
-% An attention gate adapts the source contributions across tokens and feature
-% channels while preserving single-source conditioning at the endpoints.
-% A separate frozen TRELLIS model supplies corrections to student-generated
-% latents during training; the resulting loss updates the student, not the prior.
-% % AUTHOR CHECK: Support this author-reported finding with the final geometric
-% % fidelity comparisons, separately for held-out SLat inputs and encoded meshes.
-% Our experiments show improved source-geometry preservation both on held-out
-% SLat pairs and on meshes encoded into SLat.
-
-% Our main contributions are:
-% \begin{itemize}
-%     \item A formulation that learns textured 3D morphing from training-free
-%     pseudo-targets, without ground-truth trajectories.
-%     \item A flow architecture conditioned directly on two 3D SLat
-%     representations, with learned attention fusion that adapts morphing
-%     to the encoded source geometry.
-%     \item A bounded, sample-level generative regularization that complements
-%     teacher supervision with a separate constraint on student outputs.
-%     \item Endpoint profile error (EPRE), a source-normalized measure of
-%     perceptual progression that complements image quality and path metrics.
-% \end{itemize}
