@@ -1,17 +1,21 @@
-
 \begin{abstract}
-Morphing transforms one object into another through intermediate states.
-For textured 3D assets, geometry and appearance must evolve together,
-but arbitrary objects have no naturally observed ground-truth transition.
-Recent methods address this problem through training-free procedures built
-on pretrained 3D generators.
-We turn these procedures into a source of supervision rather than the final
-morphing algorithm.
-We introduce \methodname{}, a learned teacher-student framework that uses Interp3D to generate latent pseudo-targets and adapts the two-stage TRELLIS generator through
-conditional flow matching.
-Both stages are conditioned directly on two 3D SLat representations, making source geometry an explicit input rather than inferring it from images alone.
-A learned attention gate controls how the two sources contribute to each
-intermediate asset, while shared training can favor recurring transformation patterns over example-specific teacher artifacts.
-To complement this inductive bias, a frozen TRELLIS prior supplies corrections to student-generated latents.
-The resulting objective combines examples of transitions with a separate generative constraint.
+Generating plausible transitions between textured 3D objects remains
+challenging, as geometry and appearance must evolve coherently despite
+the absence of ground-truth morphing trajectories.
+Recent approaches leverage pretrained 3D generative models to synthesize
+intermediate states, but rely on predefined interpolation strategies
+rather than learning how objects should transform across diverse examples.
+In this work, we introduce \methodname{}, a framework that turns
+generated morphing trajectories into supervision for learning a
+generalizable 3D morphing function.
+By training across diverse source objects, our model learns to combine
+their geometric and appearance information directly from 3D
+representations, replacing fixed interpolation rules with adaptive
+source conditioning.
+To mitigate artifacts inherited from generated supervision, we
+further incorporate a pretrained generative prior that guides the
+learning process toward plausible intermediate states.
+Experiments demonstrate more consistent morphing progression and
+substantially faster generation than recent training-free approaches,
+while maintaining competitive visual quality.
 \end{abstract}
