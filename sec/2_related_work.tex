@@ -1,53 +1,221 @@
+% \section{Related Work}
+% \label{sec:related}
+
+% \subsection{Shape Correspondence and Interpolation}
+% Geometric interpolation relies on relationships between the source
+% surfaces and a model of how their structures should deform.
+% NeuroMorph~\cite{eisenberger2021neuromorph} predicts correspondence and
+% interpolation together, using learned geometric features and a deformation
+% prior without manual correspondence labels. Neural Correspondence
+% Prior~\cite{attaiki2023ncp} shows that fitting neural features to noisy
+% matches can refine correspondences, including across a collection of
+% shapes. These approaches establish useful geometric relationships,
+% but correspondence alone does not specify how texture should change or
+% which intermediate asset should connect two different objects.
+% Our task couples geometry and appearance through a generative latent
+% space, without requiring pointwise source correspondence as an input.
+
+% \subsection{Structured 3D Representations}
+% Neural radiance fields~\cite{mildenhall2020nerf} model continuous density
+% and view-dependent radiance, while 3D Gaussian
+% Splatting~\cite{kerbl2023gaussians} uses explicit Gaussian primitives
+% for differentiable image formation. These representations support detailed
+% appearance, but do not themselves provide a shared space for morphing
+% between independently represented assets.
+% TRELLIS~\cite{xiang2025trellis} provides such a generative space through
+% structured latents: spatially arranged local features combine surface
+% support with information from multiple rendered views. Its two-stage
+% generator first predicts sparse structure and then the features attached
+% to that structure. The resulting latent can be decoded into meshes,
+% Gaussian primitives, or radiance fields. This separates the representation
+% used to learn a transition from the output format used to render or edit
+% it. We retain this representation and learn to condition its generation
+% on two source assets.
+
+% \subsection{Generative Textured Morphing}
+% Recent methods use pretrained 3D generators to construct transitions
+% without training a morphing model.
+% Wukong~\cite{yin2025wukong} formulates interpolation through optimal
+% transport and combines sequential initialization with semantic feature
+% consistency to retain structure and texture.
+% Interp3D~\cite{liu2026interp3d} progressively aligns conditioning semantics,
+% SLat-guided structure, and appearance. Its intermediate latents provide
+% the supervision used in our work.
+% MorphAny3D~\cite{sun2026morphany3d} fuses source and target information
+% through cross-attention, incorporates preceding-frame features through
+% self-attention, and corrects orientation changes along the sequence.
+% These methods supply different rules for using a pretrained generator
+% within each transition. \methodname{} learns its source fusion across
+% teacher-generated examples, using direct source SLat conditioning,
+% an endpoint-preserving gate, and a frozen generative prior.
+% Interp3D therefore serves both as a teacher and as a separately evaluated
+% baseline; its outputs are training examples rather than the final
+% morphing procedure.
+
+
 \section{Related Work}
 \label{sec:related}
 
-\subsection{Shape Correspondence and Interpolation}
-Geometric interpolation relies on relationships between the source
-surfaces and a model of how their structures should deform.
-NeuroMorph~\cite{eisenberger2021neuromorph} predicts correspondence and
-interpolation together, using learned geometric features and a deformation
-prior without manual correspondence labels. Neural Correspondence
-Prior~\cite{attaiki2023ncp} shows that fitting neural features to noisy
-matches can refine correspondences, including across a collection of
-shapes. These approaches establish useful geometric relationships,
-but correspondence alone does not specify how texture should change or
-which intermediate asset should connect two different objects.
-Our task couples geometry and appearance through a generative latent
-space, without requiring pointwise source correspondence as an input.
+\subsection{Geometric Shape Morphing and Correspondence}
 
-\subsection{Structured 3D Representations}
-Neural radiance fields~\cite{mildenhall2020nerf} model continuous density
-and view-dependent radiance, while 3D Gaussian
-Splatting~\cite{kerbl2023gaussians} uses explicit Gaussian primitives
-for differentiable image formation. These representations support detailed
-appearance, but do not themselves provide a shared space for morphing
-between independently represented assets.
-TRELLIS~\cite{xiang2025trellis} provides such a generative space through
-structured latents: spatially arranged local features combine surface
-support with information from multiple rendered views. Its two-stage
-generator first predicts sparse structure and then the features attached
-to that structure. The resulting latent can be decoded into meshes,
-Gaussian primitives, or radiance fields. This separates the representation
-used to learn a transition from the output format used to render or edit
-it. We retain this representation and learn to condition its generation
-on two source assets.
+Classical 3D morphing formulates the transition between two shapes through
+explicit correspondences and a deformation model. Such approaches typically
+seek point-to-point or functional correspondences between surfaces and then
+construct a path that minimizes geometric distortion. Learning-based methods
+have progressively relaxed the need for manually annotated matches.
+Deep Shells~\cite{eisenberger2020deepshells}, for example, integrates
+entropy-regularized optimal transport into a differentiable multiscale
+matching pipeline, while NeuroMorph~\cite{eisenberger2021neuromorph}
+jointly predicts unsupervised correspondences and intermediate shapes.
+Neural Correspondence Prior~\cite{attaiki2023ncp} further shows that a
+network trained from noisy matching estimates can act as a correspondence
+denoiser, including when optimized across a collection of shapes.
 
-\subsection{Generative Textured Morphing}
-Recent methods use pretrained 3D generators to construct transitions
-without training a morphing model.
-Wukong~\cite{yin2025wukong} formulates interpolation through optimal
-transport and combines sequential initialization with semantic feature
-consistency to retain structure and texture.
-Interp3D~\cite{liu2026interp3d} progressively aligns conditioning semantics,
-SLat-guided structure, and appearance. Its intermediate latents provide
-the supervision used in our work.
-MorphAny3D~\cite{sun2026morphany3d} fuses source and target information
-through cross-attention, incorporates preceding-frame features through
-self-attention, and corrects orientation changes along the sequence.
-These methods supply different rules for using a pretrained generator
-within each transition. \methodname{} learns its source fusion across
-teacher-generated examples, using direct source SLat conditioning,
-an endpoint-preserving gate, and a frozen generative prior.
-Interp3D therefore serves both as a teacher and as a separately evaluated
-baseline; its outputs are training examples rather than the final
-morphing procedure.
+Recent methods also extend geometric interpolation beyond fixed-topology
+meshes. 4Deform~\cite{sang2025fourdeform} represents shapes implicitly and
+learns a continuous velocity field, allowing interpolation between noisy,
+partial, non-isometric, and topology-changing inputs without supervision on
+intermediate states. These methods demonstrate that geometric interpolation
+can produce meaningful deformation paths even under challenging
+correspondence assumptions. However, their primary objective remains the
+evolution of geometry. Textured morphing additionally requires appearance,
+material, and semantic attributes to evolve coherently, particularly when
+the two endpoints belong to substantially different categories.
+
+A related direction connects image-based semantic priors with geometric
+registration. SRIF~\cite{sun2024srif} first renders two shapes from multiple
+views, applies diffusion-based image morphing, reconstructs intermediate
+point clouds through dynamic Gaussian representations, and finally uses
+them to guide a continuous deformation field. This provides an important
+bridge between generative morphing and explicit geometry: generated
+intermediate observations can serve as weak guidance for a 3D trajectory.
+Our setting differs in that the intermediate states themselves are textured
+3D assets generated in a shared latent space, and the morphing function is
+learned across many object pairs rather than optimized as an individual
+registration problem.
+
+\subsection{Generative 3D Representations and Priors}
+
+The emergence of neural 3D representations has enabled generative models to
+jointly capture shape and appearance. NeRF~\cite{mildenhall2020nerf}
+represents scenes through continuous density and radiance fields, while
+3D Gaussian Splatting~\cite{kerbl2023gaussians} provides an explicit set of
+anisotropic primitives suitable for efficient differentiable rendering.
+Such representations are highly effective for reconstruction and rendering,
+but independently fitted scenes do not directly define a shared latent space
+in which unrelated assets can be interpolated.
+
+Generative 3D representations therefore increasingly encode assets into
+structured latent spaces. 3DShape2VecSet~\cite{zhang2023shape2vecset}
+represents neural shape fields as sets of latent vectors suitable for
+transformer-based diffusion. GaussianCube~\cite{zhang2024gaussiancube}
+rearranges Gaussian primitives into a structured voxel grid through optimal
+transport, facilitating diffusion-based 3D generation. L4GM~\cite{ren2024l4gm}
+extends Gaussian representations to dynamic 4D content and explicitly learns
+to synthesize intermediate Gaussian states between reconstructed frames,
+highlighting the usefulness of learned interpolation in a shared 3D
+representation.
+
+TRELLIS~\cite{xiang2025trellis} provides the representation used by several
+recent textured morphing methods. It encodes an asset as a sparse spatial
+structure together with structured latent features (SLAT), and generates
+them through two rectified-flow stages. The resulting SLAT can subsequently
+be decoded into meshes, radiance fields, or Gaussian representations.
+WUKONG~\cite{yin2025wukong}, Interp3D~\cite{liu2026interp3d}, and
+MorphAny3D~\cite{sun2026morphany3d} all exploit this shared generative space,
+but modify the inference process differently to combine information from
+two endpoints. In contrast, \methodname{} retains the TRELLIS representation
+and backbone while learning the source-fusion function itself from a
+collection of teacher-generated morphing trajectories.
+
+\subsection{Diffusion-based Image Morphing and Attention Interpolation}
+
+Recent textured 3D morphing methods are strongly connected to advances in
+diffusion-based image interpolation. Early latent-diffusion interpolation
+approaches combine noisy latent states and conditioning information to
+generate intermediate images between semantically distinct endpoints
+\cite{wang2023interpolating}. IMPUS~\cite{yang2024impus} optimizes endpoint
+text embeddings and maps images through a probability-flow ODE, additionally
+introducing perceptually uniform sampling so that perceptual change is
+distributed more evenly along the morphing path. This idea is particularly
+relevant for evaluating morphing trajectories, where visually smooth
+progression is not captured by endpoint fidelity alone.
+
+DiffMorpher~\cite{zhang2024diffmorpher} adapts a pretrained diffusion model
+to each endpoint through LoRA and interpolates both the adapted parameters
+and the initial latent noise. It further introduces attention interpolation
+and injection to improve correspondence and temporal consistency.
+AID~\cite{he2024aid} instead proposes a training-free attention interpolation
+mechanism, combining inner and outer interpolated attention and sampling
+interpolation coefficients from a Beta distribution. Interp3D adopts this
+attention-interpolation perspective and likewise employs non-uniform
+interpolation sampling.
+
+FreeMorph~\cite{cao2025freemorph} removes endpoint-specific fine-tuning and
+uses guidance-aware spherical interpolation together with a step-dependent
+self-attention fusion strategy. DreamMover~\cite{shen2024dreammover}
+addresses large semantic and spatial differences by extracting natural-flow
+correspondences from diffusion representations and separately combining
+high- and low-level information. Collectively, these works show that
+successful generative morphing depends not only on interpolating latent
+variables, but also on controlling correspondence and feature mixing inside
+the denoising network. However, image-space interpolation does not enforce
+multiview consistency or explicitly preserve the 3D geometry of the
+endpoints. Recent 3D approaches therefore transfer many of these mechanisms
+into 3D foundation models.
+
+\subsection{Generative Textured 3D Morphing}
+
+An early generative formulation of view-consistent 3D morphing is
+Multiview Regenerative Morphing with Dual Flows~\cite{tsai2022morphflow}.
+Given multiview observations of two scenes, MorphFlow reconstructs volumetric
+representations and solves an optimal-transport problem to obtain rigid and
+non-rigid transformation flows. It therefore generates intermediate
+renderings that remain consistent across viewpoints without requiring an
+explicit mesh correspondence, but each pair requires its own volumetric
+optimization.
+
+More recent methods exploit pretrained 3D generative priors directly.
+Yang et al.~\cite{Yang_2025_ICCV} introduce regenerative textured 3D
+morphing with a 3D diffusion model. Their approach interpolates endpoint
+information at the levels of initial noise, model parameters, and
+conditioning features, and improves the transition with attention fusion,
+token reordering, and low-frequency enhancement. Since source-specific
+LoRA parameters are fitted to the two endpoints, this method demonstrates
+the effectiveness of generative priors for cross-category morphing but still
+requires pair-specific adaptation.
+
+WUKONG~\cite{yin2025wukong} removes pair-specific training and instead
+formulates interpolation of source and target condition tokens as an
+optimal-transport barycenter problem. Sequential initialization encourages
+adjacent intermediate states to remain coherent, while semantic consistency
+preserves high-frequency appearance information. Interp3D~\cite{liu2026interp3d}
+further argues that a single interpolation mechanism is insufficient for
+textured 3D morphing and progressively aligns the two endpoints at three
+levels. It first estimates semantic correspondences between DINOv2
+conditions~\cite{oquab2023dinov2}, then performs SLAT-guided dynamic patch
+matching during structure generation, and finally transfers appearance
+through fine-grained feature fusion. This progressive alignment produces
+high-quality pseudo-trajectories and provides the teacher supervision used
+in our framework.
+
+MorphAny3D~\cite{sun2026morphany3d} also operates directly on TRELLIS SLATs,
+but controls their evolution through modifications of the attention
+mechanism. Morphing Cross-Attention fuses source and target conditions,
+Temporal-Fused Self-Attention propagates information from the previously
+generated state, and orientation correction reduces abrupt pose changes.
+Its sequential dependency improves temporal smoothness without additional
+training, but each sequence is still produced by a predefined fusion rule
+rather than by a morphing function learned across examples.
+
+These approaches establish pretrained 3D generators as strong priors for
+textured morphing, but their morphing rules are manually designed and
+applied independently at inference time. \methodname{} takes a complementary
+view: training-free methods can generate useful pseudo-trajectories, which
+can then be treated as supervision rather than as the final inference
+procedure. We learn a shared two-source fusion model across many object
+pairs and interpolation coefficients, condition both generative stages
+directly on the source SLATs, and regularize student outputs with a frozen
+TRELLIS generative prior. Thus, the model can capture recurring transition
+patterns across the training collection while retaining the ability to
+generalize to unseen endpoint pairs without pair-specific optimization.
