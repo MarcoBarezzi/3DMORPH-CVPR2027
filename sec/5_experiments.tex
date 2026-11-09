@@ -24,7 +24,7 @@ Our method also achieves the lowest EPRE under both evaluation protocols, indica
     \label{fig:epre_profile}
 \end{figure}
 
-Finally, \methodname{} achieves the lowest generation time, requiring only 73 seconds per sequence compared to 235 seconds for Interp3D and 306 seconds for MorphAny3D. This corresponds to a reduction of $68.9\%$ and $76.1\%$ respectively, while maintaining competitive generation quality and more regular morphing transitions.
+Finally, \methodname{} achieves the lowest generation time, requiring only 73 seconds per sequence compared to 235 seconds for Interp3D and 306 seconds for MorphAny3D. This corresponds to a reduction of $68.9\%$ and $76.1\%$ respectively, while maintaining competitive generation quality and more regular morphing transitions. The efficiency of \methodname{} is achieved by operating directly on 3D latent features, avoiding the additional forward computations required to extract and cache intermediate attention maps. In contrast, Interp3D and MorphAny3D rely on separate forward passes for each intermediate morphing state, resulting in higher computational overhead.
 
 \subsection{Qualitative Results}
 \begin{figure*}[t]
