@@ -4,8 +4,8 @@
 
 We follow the evaluation protocol of Interp3D~\cite{liu2026interp3d}, reporting FID~\cite{heusel2017fid} to evaluate the distribution of generated states and perceptual path length (PPL)~\cite{karras2019stylegan} to measure the accumulated perceptual variation along the morphing trajectory, normalized by the source distance. We additionally report perceptual distance variance (PDV)~\cite{zhang2024diffmorpher}, which measures the variability of perceptual distances between consecutive states. While these metrics characterize image quality and different properties of the morphing path, they do not explicitly evaluate how the generated states progress relative to the two sources.
 
-\subsection{Endpoint Profile Error}
-\label{sec:epre}
+\subsection{Source Profile Error}
+\label{sec:spe}
 
 \begin{figure}[t]
     \centering
@@ -17,7 +17,7 @@ We follow the evaluation protocol of Interp3D~\cite{liu2026interp3d}, reporting 
 
 To examine this limitation, Figure~\ref{fig:distances50} shows how the perceptual distances from both sources evolve during morphing. Ideally, the distance from the first source should increase while that from the second decreases, with both curves intersecting near the midpoint. However, existing methods exhibit different behaviors. MorphAny3D produces asymmetric curves whose intersection is shifted from the center. Interp3D exhibits a more balanced profile, while our method shows a similar central intersection with greater separation between the source distances near the endpoints. These differences highlight the need to explicitly measure how the transition moves away from one source and approaches the other.
 
-We introduce Endpoint Profile Error (EPRE) to quantify this progression against a linear perceptual reference. Since two objects do not define a unique morphing trajectory, we do not assume that perceptual linearity is the only valid behavior. Instead, we use it as a simple and interpretable reference in which the interpolation coefficient corresponds to a uniform progression between the sources.
+We introduce Source Profile Error (SPE) to quantify this progression against a linear perceptual reference. Since two objects do not define a unique morphing trajectory, we do not assume that perceptual linearity is the only valid behavior. Instead, we use it as a simple and interpretable reference in which the interpolation coefficient corresponds to a uniform progression between the sources.
 
 Let $M(t)$ denote the generated asset at progress $t\in[0,1]$, from source $S_1$ to $S_2$, and let $d(\cdot,\cdot)$ denote LPIPS averaged over matched camera views. We normalize the distance to each source by their mutual perceptual distance:
 

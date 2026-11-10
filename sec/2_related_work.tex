@@ -125,7 +125,7 @@ not learn a shared morphing function across a collection of transitions.
 morphs as supervision rather than as the final inference procedure.
 Using Interp3D-generated targets, we learn source fusion across many
 object pairs and interpolation coefficients, conditioning both generation
-stages directly on the source SLats. A separate frozen TRELLIS prior
+stages directly on the source SLat representations. A separate frozen TRELLIS prior
 regularizes the student's own outputs, complementing the example
 trajectories supplied by the teacher. This yields a reusable
 3D-conditioned morphing model that requires no source-specific parameter
