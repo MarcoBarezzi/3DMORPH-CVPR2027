@@ -258,15 +258,16 @@ transformation. The overall objective is
  +\lambda_{\mathrm{prior}}\mathcal L_{\mathrm{prior}},
 \end{equation}
 where $\lambda_{\mathrm{prior}}$ controls the strength
-of regularization. The frozen flows and source images
-are required only during training.
+of regularization. The flow-matching loss is optimized at every training step,
+while the prior term is included only every $K$ steps
+to limit the additional computational cost.
 Algorithm~\ref{alg:generative_prior} summarizes the prior
 regularization step for either stage, taking the
 flow-matching loss as input.
 
 \begin{algorithm}[t]
-\caption{Generative-prior regularization for one
-generation stage.}
+\caption{Generative-prior regularization for one generation
+stage, applied every $K$ training steps.}
 \label{alg:generative_prior}
 \small
 \algrenewcommand{\algorithmicrequire}{\textbf{Input:}}
