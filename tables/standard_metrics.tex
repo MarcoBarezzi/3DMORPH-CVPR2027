@@ -8,17 +8,17 @@
 \label{tab:standard}
 \begin{tabular}{lrrrrrr}
 \toprule
-Method & FID $\downarrow$ & PPL $\downarrow$  & PDV ($10^{-3}$) $\downarrow$ & \multicolumn{2}{c}{EPRE $\downarrow$} & TIME (s) $\downarrow$ \\
+Method & FID $\downarrow$ & PPL $\downarrow$  & PDV ($10^{-3}$) $\downarrow$ & \multicolumn{2}{c}{SPE $\downarrow$} & TIME (s) $\downarrow$ \\
 \cmidrule(lr){5-6}
 & & & &  Interp Protocol & Dense Protocol &  \\
 \midrule
 DiffMorpher & 143.68 & 3.86 & 1.81 & 0.30 & 0.41 & 148\\
 FreeMorph & 124.50 & 4.46 & \second{1.22} & 0.33 & 0.45 & 106 \\
-AID-I & 101.55 & 3.52 & 1.29 & \second{0.26} & 0.34 & \best{66} \\
-AID-O & 98.40 & 3.41 & 1.24 & \second{0.26} & \second{0.33} & 77 \\
+% AID-I & 101.55 & 3.52 & 1.29 & \second{0.26} & 0.34 & \best{66} \\
+AID-O & 98.40 & 3.41 & 1.24 & \second{0.26} & \second{0.33} & \second{77} \\
 MorphAny3D & \second{95.95} & \best{2.87} & 4.88 & 0.33 & 0.39 & 306 \\
 Interp3D & 96.02 & \second{3.31} & 1.40 & 0.27 & 0.35 & 235 \\
-\methodname{} (ours) & \best{95.03} & 3.58 & \best{0.85} & \best{0.25} & \best{0.31} & \second{73}  \\
+\methodname{} (ours) & \best{95.03} & 3.58 & \best{0.85} & \best{0.25} & \best{0.31} & \best{73}  \\
 \bottomrule
 \end{tabular}
 \end{table*}
