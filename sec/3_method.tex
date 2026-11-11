@@ -4,7 +4,7 @@
 Given two textured 3D assets $S_1$ and $S_2$, our objective is to generate
 a continuous morphing sequence controlled by an interpolation coefficient
 $\alpha\in[0,1]$, with $\alpha=1$ corresponding to $S_1$ and $\alpha=0$
-to $S_2$. We approach this task through a teacher--student framework
+to $S_2$. To this end, we propose a teacher--student framework
 that transforms training-free morphing predictions into supervision for
 a learnable generative model. By training on morphs produced from many different objects, the student learns a shared morphing function, rather than relying on a fixed interpolation procedure.
 An overview of the proposed framework is shown in
@@ -25,46 +25,45 @@ Fig.~\ref{fig:architecture}.
 
 \subsection{Preliminaries}
 \label{sec:preliminaries}
-TRELLIS\cite{xiang2025trellis} generates 3D assets conditioned on images or text using structured latents (SLat). In this representation, each active location of a sparse 3D grid carries local features describing geometry and appearance. The representation therefore separates the asset’s spatial support from the information associated with each occupied location.
+TRELLIS\cite{xiang2025trellis} is a generative 3D model that generates 3D assets conditioned on images or text using structured latents (SLat). In SLat, each active location of a sparse 3D grid carries local features describing geometry and appearance separating the asset’s spatial support from the information associated with each occupied location.
 
 To generate these latents, TRELLIS uses two successive transformer-based rectified flows~\cite{xiang2025trellis,liu2023rectifiedflow}. First, the sparse-structure (SS) flow predicts a latent from which the occupied grid locations are decoded; conditioned on this support, the SLat flow then generates their local features. For image-conditioned generation, DINOv2~\cite{oquab2023dinov2} encodes the input image into visual tokens that condition both flows through cross-attention. The resulting SLat representation can then be decoded into a mesh, 3D Gaussian splats~\cite{kerbl2023gaussians}, or a radiance field~\cite{mildenhall2020nerf}.
 
-Building on this representation, We adapt both generation stages to conditions extracted from the two source 3D assets.
+Building on this representation, we adapt both generation stages to to be conditioned from features extracted directly from the two source 3D assets rather than images.
 
 \subsection{Framework}
 \subsubsection{Training Dataset Construction}
 \label{sec:dataset_construction}
-Since ground-truth morphing trajectories are not naturally available, we developed a teacher-student framework, using Interp3D ~\cite{liu2026interp3d} as a teacher to generate the training data for our student model. Because Interp3D is image-conditioned, we start from 12,500 distinct pairs of source images, from which the corresponding 3D assets $S_1,S_2$ are generated. For each pair, we then produce four morphing samples at different interpolation coefficients $\alpha\in[0,1]$, including $\alpha=0$ and $\alpha=1$ to encourage the student to reconstruct the source objects. Finally, we extract the corresponding SS and SLat representations from each generated asset. 
+Since ground-truth morphing trajectories are not naturally available, we developed a teacher-student framework, using Interp3D ~\cite{liu2026interp3d} as a teacher to generate the training data for our student model. Since Interp3D is image-conditioned, we start from 12,500 distinct pairs of source images, from which the corresponding 3D assets $S_1,S_2$ are generated. For each pair, we then produce four morphing samples at different interpolation coefficients $\alpha\in[0,1]$, including $\alpha=0$ and $\alpha=1$ to encourage the student to reconstruct the source objects. Finally, we extract the corresponding SS and SLat representations from each generated asset. 
 
-Each training example therefore contains the two source SLat representations, an interpolation coefficient, and the teacher-generated SS and SLat latents for that coefficient.
+Therefore, each training example contains the two source SLat representations, an interpolation coefficient, and the teacher-generated SS and SLat latents for that coefficient.
 
 \subsubsection{Architecture}
 \label{sec:architecture}
 To learn morphing from these training examples, our student adapts the two generation flows of TRELLIS~\cite{xiang2025trellis} to use conditions extracted directly from the source 3D assets. Let $z_i$ denote the SLat coordinates and features of asset $S_i$. A shared encoder $\mathcal E_{3D}$ maps $z_i$ to conditioning tokens $c_i$, replacing the image-derived conditions used by the original flows:
 \begin{equation}
 c_i = \mathcal E_{3D}(z_i),
-\qquad i\in{1,2}.
+\qquad i\in\{1,2\}.
 \label{eq:source_conditioning}
 \end{equation}
 
-\noindent 
-Each condition contains 4096 tokens arranged on a $16\times16\times16$ grid matching the resolution of the SS representation, with positional embeddings encoding their spatial locations. The 1024-dimensional features match the dimensionality of the DINOv2 embeddings used to condition the pretrained TRELLIS cross-attention layers.
+\noindent with $c_i\in\mathbb{R}^{16\times16\times16\times 1024}$. The 1024-dimensional features match the dimensionality of the DINOv2 embeddings used to condition the pretrained TRELLIS cross-attention layers.
+% Each condition contains 4096 tokens arranged on a $16\times16\times16$ grid matching the resolution of the SS representation, with positional embeddings encoding their spatial locations. The 1024-dimensional features match the dimensionality of the DINOv2 embeddings used to condition the pretrained TRELLIS cross-attention layers.
 
-Starting from the pretrained TRELLIS weights, we optimize LoRA adapters~\cite{hu2022lora} together with the 3D encoder and the gate network used in the Gate-Adapted Morphing Cross-Attention (GAMCA). Within each transformer block, a gate network $\mathcal G$ learns to combine the responses of a shared cross-attention module to the two source conditions, as described in Sec.~\ref{sec:attention_gating}.
+During training, we optimize pretrained TRELLIS weights using LoRA adapters~\cite{hu2022lora} together with the 3D encoder and the proposed Gate-Adapted Morphing Cross-Attention (GAMCA). % described in Sec.~\ref{sec:attention_gating}.
 
 \subsubsection{Gate-Adapted Morphing Cross-Attention}
 \label{sec:attention_gating}
 GAMCA combines the responses of the cross-attention module to the two source conditions through a learnable gate. While the interpolation coefficient $\alpha$ controls the overall balance between the sources, the gate adjusts their relative contributions across latent tokens and feature channels, allowing different parts of the morph to combine source features differently. The same mechanism is applied in both the SS and SLat generation stages, where each transformer block processes latent tokens $x\in\mathbb R^{N\times d}$ with $d=1024$.
 
-The SS flow operates on a fixed set of $N=4096$ tokens, whereas the SLat flow processes a variable number of active tokens, determined by the asset's spatial support at the transformer resolution.
-In either case, the current latent tokens are provided to the cross-attention operator, denoted by $\operatorname{CA}$, which is evaluated separately on the two source conditions:
-
+%The SS flow operates on a fixed set of $N=4096$ tokens, whereas the SLat flow processes a variable number of active tokens, determined by the asset's spatial support at the transformer resolution.
+In either stage, the current latent tokens are provided to the cross-attention operator, denoted by $\operatorname{CA}$, which is evaluated separately on the two source conditions:
 \begin{equation}
  h_1=\operatorname{CA}(x,c_1),
 \qquad
 h_2=\operatorname{CA}(x,c_2),
 \end{equation}
-The resulting responses $h1,h2$ are then combined using weights that adapt to their features and to the interpolation coefficient $\alpha$:
+The resulting responses $h_1,h_2$ are then combined using weights that adapt to their features and to the interpolation coefficient $\alpha$:
 \begin{equation}
  \begin{aligned}
   \delta &=\mathcal G(h_1,h_2,\alpha),\\
@@ -75,7 +74,7 @@ The resulting responses $h1,h2$ are then combined using weights that adapt to th
 \end{equation}
 where $\mathcal G$ is an MLP that predicts the residual adjustment $\delta$, while $g$ contains the resulting mixing weights. Both $\delta$ and $g$ have the same dimensions as $x$, and $\odot$ denotes elementwise multiplication.
 
-We initialize $\mathcal G$ to output zero, so the fusion initially reduces to $\alpha h_1+(1-\alpha)h_2$. As training progresses, the network learns to adjust this mixture according to the source responses and the current generation state. Because the adjustment is multiplied by $\alpha(1-\alpha)$, it vanishes at $\alpha=0$ and $\alpha=1$, leaving only $h_2$ or $h_1$, respectively. At these coefficient values, generation therefore uses only the corresponding source condition, while reconstruction is learned from the teacher targets.
+We initialize $\mathcal G$ to output zero, so the fusion initially reduces to $\alpha h_1+(1-\alpha)h_2$. As training progresses, the network learns to adjust this mixture according to the source responses and the current generation state. Since the adjustment is multiplied by $\alpha(1-\alpha)$, it vanishes at $\alpha=0$ and $\alpha=1$, leaving only $h_2$ or $h_1$, respectively. Therefore, at these coefficient values, generation uses only the corresponding source condition, while reconstruction is learned from the teacher targets.
 % \subsubsection{Training and generative-prior regularization}
 % \label{sec:teacher_supervision}
 % \label{sec:generative_prior}
@@ -191,11 +190,10 @@ We initialize $\mathcal G$ to output zero, so the fusion initially reduces to $\
 \label{sec:generative_prior}
 
 We optimize the SS and SLat stages using the same training
-objective, with their respective teacher-generated latents.
-For either stage, let $y$ denote the teacher latent associated
+objective. More in detail, for either stage, let $y$ denote the teacher latent associated
 with the source pair and interpolation coefficient $\alpha$.
 Given Gaussian noise $\epsilon\sim\mathcal N(0,I)$ and a
-sampled time $t$, we construct
+sampled time $t$, we construct:
 \begin{equation}
  z_t=(1-t)y+\sigma_t\epsilon,
  \qquad
@@ -215,31 +213,14 @@ conditional flow matching~\cite{lipman2022flowmatching}:
  \end{aligned}
  \label{eq:flow_matching}
 \end{equation}
-To encourage consistency under source exchange, we also
-reverse the source order and replace $\alpha$ with
-$1-\alpha$, while retaining the same teacher latent.
+%To encourage consistency under source exchange, we also reverse the source order and replace $\alpha$ with $1-\alpha$, while retaining the same teacher latent.
 
-Combining two source objects can introduce artifacts into
-teacher-generated latents, which the student may reproduce
-under flow-matching supervision alone. We therefore
-complement this supervision with a generative prior based
-on the original TRELLIS model, drawing on its pretrained
-knowledge of plausible 3D assets to regularize the
-student's outputs.
+Nevertheless, combining two source objects can introduce artifacts into teacher-generated latents, which the student may learn to reproduce. To this end, we complement teacher supervision with a generative prior derived from the original TRELLIS model, leveraging its pretrained knowledge of 3D structures to regularize the student's predictions.
 
-For each stage, we retain a frozen copy of the original
-image-conditioned flow, denoted by $T$. The student first
-generates a latent $\hat z$ conditioned on $c_1,c_2,\alpha$.
-We then perturb this sample at a low noise level $\tau$,
-using the same noise process defined above, to obtain
-$\hat z_\tau$. The frozen flow processes this same
-perturbed sample twice, conditioned separately on the
-DINOv2 embeddings~\cite{oquab2023dinov2} of the source
-images $I_1$ and $I_2$.
+Specifically, for each stage, we retain a frozen copy of the original image-conditioned flow, denoted by $T$. The student first
+generates a latent $\hat z$ conditioned on $c_1,c_2,\alpha$. We then inject a small amount of noise into the generated latent $\hat z$ at noise level $\tau$ obtaining $\hat z_\tau$. The frozen flow then processes the same perturbed sample under two separate conditioning signals, given by the DINOv2 embeddings of the source images $I_1$ and $I_2$, respectively.
 
-Its velocity predictions are converted into clean-latent
-estimates $\tilde z_1$ and $\tilde z_2$, which we use as
-fixed regression targets for $\hat z$, weighted by the prior loss according to the interpolation coefficient:
+Finally, the predicted velocities are used to obtain clean-latent estimates $\tilde z_1$ and $\tilde z_2$, which serve as fixed regression targets for $\hat z$. Their contributions are weighted by the interpolation coefficient $\alpha$, yielding the following prior loss:
 \begin{equation}
  \begin{aligned}
  \mathcal L_{\mathrm{prior}}=\mathbb E\big[
@@ -251,20 +232,14 @@ fixed regression targets for $\hat z$, weighted by the prior loss according to t
  \end{aligned}
  \label{eq:prior}
 \end{equation}
-This loss encourages plausible intermediate states,
-while teacher supervision guides the intended
-transformation. The overall objective is
+This loss encourages plausible intermediate states, while teacher supervision guides the intended transformation. The overall objective becomes:
 \begin{equation}
  \mathcal L=\mathcal L_{\mathrm{FM}}
  +\lambda_{\mathrm{prior}}\mathcal L_{\mathrm{prior}},
 \end{equation}
 where $\lambda_{\mathrm{prior}}$ controls the strength
-of regularization. The flow-matching loss is optimized at every training step,
-while the prior term is included only every $K$ steps
-to limit the additional computational cost.
-Algorithm~\ref{alg:generative_prior} summarizes the prior
-regularization step for either stage, taking the
-flow-matching loss as input.
+of regularization. %The flow-matching loss is optimized at every training step, while the prior term is included only every $K$ steps to limit the additional computational cost. 
+Algorithm~\ref{alg:generative_prior} summarizes the prior regularization step for either stage, taking the flow-matching loss as input.
 
 \begin{algorithm}[t]
 \caption{Generative-prior regularization for one generation

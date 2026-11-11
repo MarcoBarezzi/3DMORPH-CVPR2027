@@ -3,10 +3,12 @@
 
 \subsection{Experimental Setup}
 
-We compare \methodname{} with DiffMorpher~\cite{zhang2024diffmorpher}, FreeMorph~\cite{cao2025freemorph}, AID-O~\cite{he2024aid}, Interp3D~\cite{liu2026interp3d}, and MorphAny3D~\cite{sun2026morphany3d} on 50 source pairs. All generated assets are evaluated against common
-canonical sources using the same Gaussian renderer and matched camera views.
+We compare \methodname{} with DiffMorpher~\cite{zhang2024diffmorpher}, FreeMorph~\cite{cao2025freemorph}, AID-O~\cite{he2024aid}, Interp3D~\cite{liu2026interp3d}, and MorphAny3D~\cite{sun2026morphany3d} on 50 source pairs. All generated assets are evaluated against common sources using the same Gaussian renderer and matched camera views.
 
-We use two complementary sampling protocols. The Interp Protocol contains five intermediate states sampled at deterministic $\operatorname{Beta}(5,5)$ quantiles, together with the two sources. The Dense Protocol contains 48 uniformly spaced intermediates at $\alpha_k=1-k/49$, $k=1, \ldots,48$, together with the sources. Perceptual distances are evaluated over 64 matched views. For FID, intermediate-state indices and camera views are selected identically for all methods. FID, PPL, and PDV are reported under the Interp Protocol, while SPE is evaluated under both protocols.
+We use two complementary metric protocols. The Interp3D~\cite{liu2026interp3d} protocol contains five intermediate states sampled at deterministic $\operatorname{Beta}(5,5)$ quantiles, together with the two sources. The dense protocol contains 48 uniformly spaced intermediates at $\alpha_k=1-k/49$, $k=1, \ldots,48$, together with the sources. Perceptual distances are evaluated over 64 matched views. For FID, intermediate-state indices and camera views are selected identically for all methods. FID, PPL, and PDV are reported under the Interp3D protocol, while SPE is evaluated under both protocols.
+All experiments are conducted on a single NVIDIA A100 GPU. TRELLIS-based inference pipelines and \methodname{} use
+25 sampling steps for the SS stage and 25 for the SLat stage. Reported runtimes are total generation times for a sequence
+of five intermediate states.
 
 \subsection{Quantitative Results}
 
@@ -34,9 +36,7 @@ Our method has a higher PPL than Interp3D and MorphAny3D, indicating a longer pe
     \label{fig:source_profiles}
 \end{figure}
 
-We further examine how the generated states progress relative to both source objects. Figure~\ref{fig:source_profiles} shows the mean LPIPS
-distances to the sources under the Dense Protocol. MorphAny3D exhibits asymmetric profiles whose intersection is displaced from the midpoint.
-Interp3D and \methodname{} have intersections closer to $\alpha=0.5$, although their profiles differ away from the center.
+We further examine how the generated states progress relative to both source objects. Figure~\ref{fig:source_profiles} shows the mean LPIPS distances to the sources under the Dense Protocol. MorphAny3D exhibits asymmetric profiles whose intersection is displaced from the midpoint. Interp3D and \methodname{} have intersections closer to $\alpha=0.5$, although their profiles differ away from the center.
 
 The SPE scores in Table~\ref{tab:standard} evaluate these profiles against the linear source-distance reference. \methodname{} achieves the lowest scores under both protocols, with 0.25 for the Interp Protocol and 0.31 for the Dense Protocol. Under the Dense Protocol, AID-O, Interp3D, and MorphAny3D obtain 0.33, 0.35, and 0.39, respectively.
 
@@ -67,10 +67,7 @@ Qualitative comparisons are presented in Fig. \ref{fig:comparison}. MorphAny3D \
         keepaspectratio
     ]{figures/comparison.png}
     \caption{
-        Qualitative comparisons on four object pairs.
-        Each block shows Interp3D, MorphCraft3D, and MorphAny3D,
-        from top to bottom.
-        Columns progress from $\alpha=1$ (first source)
+        Qualitative comparisons on two object pairs. Each block shows Interp3D, MorphCraft3D, and MorphAny3D, from top to bottom. Columns progress from $\alpha=1$ (first source)
         to $\alpha=0$ (second source).
     }
     \label{fig:comparison}
