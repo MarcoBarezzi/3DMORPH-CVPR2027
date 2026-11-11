@@ -64,4 +64,7 @@ For each source pair, SPE integrates the squared deviation over the interpolatio
  \label{eq:spe}
 \end{equation}
 We approximate the integral using the trapezoidal rule over the sampled coefficients and average the resulting scores across source pairs. Lower SPE indicates closer agreement with the reference progression.
+
+We are aware that SPE assumes a linear progression in perceptual space as a reference for balanced transitions. In the absence of ground-truth morphing trajectories, this provides a simple and interpretable criterion for penalizing premature convergence toward either source or prolonged stagnation.%, although perceptually plausible transitions may also follow nonlinear trajectories.
+
 % Figure~\ref{fig:epre_profile} shows how the squared profile error varies along the transition. Our method achieves lower errors over most of the trajectory, particularly near the endpoints, while remaining comparable to Interp3D around the midpoint. Table~\ref{tab:standard} reports the aggregated EPRE scores under two evaluation protocols. The Interp Protocol uses five intermediate states, whereas the Dense Protocol evaluates 48 intermediates, providing a more detailed assessment of progression throughout the transition.

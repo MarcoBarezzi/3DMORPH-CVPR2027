@@ -5,9 +5,8 @@
 
 We compare \methodname{} with DiffMorpher~\cite{zhang2024diffmorpher}, FreeMorph~\cite{cao2025freemorph}, AID-O~\cite{he2024aid}, Interp3D~\cite{liu2026interp3d}, and MorphAny3D~\cite{sun2026morphany3d} on 50 source pairs. All generated assets are evaluated against common sources using the same Gaussian renderer and matched camera views. While the main quantitative evaluation includes all baselines, qualitative comparisons and additional analyses focus on Interp3D and MorphAny3D, as they represent the current state of the art in 3D morphing.
 
-We use two complementary metric protocols. The Interp3D~\cite{liu2026interp3d} protocol contains five intermediate states sampled at deterministic $\operatorname{Beta}(5,5)$ quantiles, together with the two sources. The dense protocol contains 48 uniformly spaced intermediates at $\alpha_k=1-k/49$, $k=1, \ldots,48$, together with the sources. Perceptual distances are evaluated over 64 matched views. For FID, intermediate-state indices and camera views are selected identically for all methods. FID, PPL, and PDV are reported under the Interp3D protocol, while SPE is evaluated under both protocols.
-All experiments are conducted on a single NVIDIA A100 GPU. TRELLIS-based inference pipelines and \methodname{} use
-25 sampling steps for the SS stage and 25 for the SLat stage. 
+We use two complementary metric protocols. The Interp3D~\cite{liu2026interp3d} protocol contains five intermediate states sampled at deterministic $\operatorname{Beta}(5,5)$ quantiles, together with the two sources. The dense protocol contains 48 uniformly spaced intermediates at $\alpha_k=1-k/49$, $k=1, \ldots,48$, together with the sources. Perceptual distances are evaluated over 64 matched views. For FID, intermediate-state indices and camera views are selected identically for all methods. FID, PPL, and PDV are reported under the Interp3D protocol, while SPE is evaluated under both protocols. We set the prior regularization weight to $\lambda_{\mathrm{prior}}=0.1$, chosen empirically in preliminary experiments.
+All experiments are conducted on a single NVIDIA A100 GPU. TRELLIS-based inference pipelines and \methodname{} use 25 sampling steps for the SS stage and 25 for the SLat stage. 
 
 \subsection{Quantitative Results}
 
@@ -15,9 +14,9 @@ All experiments are conducted on a single NVIDIA A100 GPU. TRELLIS-based inferen
 
 \subsubsection{Visual Quality and Transition Regularity}
 
-Table~\ref{tab:standard} compares all reported methods. \methodname{} obtains the lowest FID of 95.03, with small differences from MorphAny3D and Interp3D, which achieve 95.95 and 96.02, respectively. It also achieves the lowest PDV of $0.85\times10^{-3}$ ($-39\%$ w.r.t. Interp3D and $-30\%$ w.r.t. FreeMorph, the strongest baseline).
+Table~\ref{tab:standard} shows that \methodname{} achieves competitive visual quality, with the lowest FID of 95.03. It also obtains the lowest PDV of $0.85\times10^{-3}$, corresponding to reductions of 39\% and 83\% relative toInterp3D and MorphAny3D, respectively.
 
-Our method has a higher PPL w.r.t. Interp3D and MorphAny3D, indicating a longer perceptual path. Nevertheless, its lower PDV shows that perceptual changes between consecutive sampled states are more uniform. Overall, this denotes a smoother and more consistent transitions between consecutive states. %The two measurements therefore describe complementary properties of the transition: its overall perceptual length and the variability of its individual steps.
+While our method has a higher PPL than both baselines, this does not indicate lower morphing quality. A higher PPL reflects greater overall perceptual change along the trajectory, which may also result from reduced stagnation. Its interpretation therefore benefits from considering how this change is distributed: the lower PDV of \methodname{} indicates more uniform perceptual differences between consecutive states. Together, these results suggest a transition with greater overall variation distributed more evenly along the sampled trajectory. %The two measurements therefore describe complementary properties of the transition: its overall perceptual length and the variability of its individual steps.
 
 \subsubsection{Source-relative Progression}
 
@@ -34,7 +33,17 @@ Our method has a higher PPL w.r.t. Interp3D and MorphAny3D, indicating a longer 
     \label{fig:source_profiles}
 \end{figure}
 
-In Fig.~\ref{fig:source_profiles}, we analyze how the generated states evolve relative to both source objects by measuring their mean LPIPS distances to each source throughout the interpolation. MorphAny3D exhibits asymmetric distance profiles, with the intersection shifting away from the midpoint. In contrast, both Interp3D and \methodname{} exhibit intersections close to $\alpha=0.5$, indicating a more balanced progression between the two sources. However, their profiles differ in shape: near the interpolation extrema, \methodname{} exhibits larger perceptual distances to the opposite source and smaller distances to the corresponding source than Interp3D, suggesting better preservation of source-specific characteristics near the endpoints.
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]
+    {figures/3d_reconstruction.png}
+    \caption{Morphing results at dense protocol endpoint.}
+    \label{fig:3d_reconstruction}
+\end{figure}
+
+In Fig.~\ref{fig:source_profiles}, we analyze how the generated states evolve relative to both source objects by measuring their LPIPS distances to each source throughout the transition. MorphAny3D exhibits asymmetric profiles whose intersection is shifted from the midpoint. In contrast, both Interp3D and \methodname{} exhibit intersections close to $\alpha=0.5$, reflecting the desired behavior of a balanced interpolation, where the intermediate state is perceptually equidistant from both sources.
+
+Crucially, near the sampled interpolation extrema ($\alpha\approx0.02$ and $0.98$), \methodname{} achieves lower perceptual distances to the corresponding source than Interp3D, while maintaining larger distances to the opposite source. These profiles demonstrate that our method more faithfully reconstructs source-specific characteristics as the interpolation approaches either endpoint, questo è rafforzato da quanto si vede in Fig. \ref{fig:3d_reconstruction} in cui nei dettagli della coda si vede che la coerenza geoemtrica è rafforzata da 3d conditioning. The exact endpoints ($\alpha=0$ and $\alpha=1$) are excluded from the evaluation, as they correspond to the original source objects.
 
 Finally, to evaluate the progression of the morphing sequence, in Table~\ref{tab:standard} we calculate the proposed SPE scores. \methodname{} achieves the lowest scores under both protocols indicating that the learned morphing function is better aligned with the interpolation coefficient than the other methods. %with 0.25 for the Interp Protocol and 0.31 for the Dense Protocol. Under the Dense Protocol, AID-O, Interp3D, and MorphAny3D obtain 0.33, 0.35, and 0.39, respectively.
 
@@ -49,14 +58,19 @@ Finally, to evaluate the progression of the morphing sequence, in Table~\ref{tab
 % Figure~\ref{fig:spe_profile} localizes the deviations through the mean squared profile error $q(\alpha)$. Compared with Interp3D, our method has lower deviations near the source endpoints and remains comparable around the midpoint. These profiles complement the aggregate SPE scores by showing where differences occur along the transition.
 
 \subsubsection{Computational Efficiency}
+Table~\ref{tab:standard} reports total generation times for sequences of five intermediate states. \methodname{} requires 73 seconds, compared with 235 seconds for Interp3D and 306 seconds for MorphAny3D, reducing generation time by 68.9\% and 76.1\%, respectively.
 
-In Table \ref{tab:standard} the computational efficiency of \methodname{} when generating morphing sequences is also presented. The proposed method is 68.9\%/76.1\% faster than Interp3D and MorphAny3D, respectively. 
+The reported runtime includes converting both source assets into SLat representations, a preprocessing cost incurred once per source pair. Once these representations are available, the student generates intermediate states through forward evaluations of the learned SS and SLat flows, without explicit correspondence estimation or dependencies on previously generated intermediates. Interp3D~\cite{liu2026interp3d} additionally performs correspondence estimation, feature alignment, and source-flow evaluations during sampling. MorphAny3D~\cite{sun2026morphany3d} instead generates the transition sequentially, caching and reusing attention features from preceding states. The frozen generative prior is used only during training and introduces no inference-time overhead.
+
+
+
+% In Table \ref{tab:standard} the computational efficiency of \methodname{} when generating morphing sequences is also presented. The proposed method is 68.9\%/76.1\% faster than Interp3D and MorphAny3D, respectively. 
 
 % Generation requires 73 seconds per sequence, compared with 77 seconds for AID-O, 235 seconds for Interp3D, and 306 seconds for MorphAny3D.
 % This corresponds to time reductions of 68.9\% relative to Interp3D and 76.1\% relative to MorphAny3D. The student integrates source information through learned 3D conditioning, while the main 3D baselines additionally perform explicit correspondence or temporal feature-processing operations during generation. The frozen generative prior is used only during training and adds no inference-time computation.
 
 \subsection{Qualitative Results}
-Qualitative comparisons are presented in Fig. \ref{fig:comparison}. MorphAny3D \cite{sun2026morphany3d} generally preserves the appearance of the source objects, but introduces noticeable geometric artifacts that compromise the structural coherence of intermediate states. Moreover, as also shown in Fig. \ref{fig:source_profiles}, the generated transitions tend to collapse toward one of the two sources, limiting the gradual evolution. Interp3D \cite{liu2026interp3d} produces more plausible intermediate shapes, but still exhibits non-homogeneous changes along the morphing trajectory, particularly around $\alpha=0.5$, where substantial structural transformations occur between consecutive states. In contrast, \methodname{} generates more coherent intermediate objects with fewer visible artifacts, while distributing geometric and appearance changes more gradually throughout the transition. As a result, the morphing progresses more consistently between the two sources with a heterogeneous trajectory.
+Qualitative comparisons are presented in Fig. \ref{fig:comparison}. MorphAny3D \cite{sun2026morphany3d} generally preserves the appearance of the source objects, but introduces noticeable geometric artifacts that compromise the structural coherence of intermediate states. Moreover, as also shown in Fig. \ref{fig:source_profiles}, the generated transitions tend to collapse toward one of the two sources, limiting the gradual evolution. Interp3D \cite{liu2026interp3d} produces more plausible intermediate shapes, but still exhibits non-homogeneous changes along the morphing trajectory, particularly around $\alpha=0.5$, where substantial structural transformations occur between consecutive states. In contrast, \methodname{} generates more coherent intermediate objects with fewer visible artifacts, while distributing geometric and appearance changes more gradually throughout the transition. %As a result, the morphing progresses more consistently between the two sources with a heterogeneous trajectory.
 
 
 \begin{figure*}[t]
@@ -67,7 +81,7 @@ Qualitative comparisons are presented in Fig. \ref{fig:comparison}. MorphAny3D \
         keepaspectratio
     ]{figures/comparison.png}
     \caption{
-        Qualitative comparisons on a source pair on 5 intermediate states.
+        Qualitative comparisons on a source pair on 5 intermediate states. \textbf{Additional comparisons are in the supplementary materials.}
     }
     \label{fig:comparison}
 \end{figure*}
@@ -84,21 +98,21 @@ Qualitative comparisons are presented in Fig. \ref{fig:comparison}. MorphAny3D \
     \includegraphics[
         width=\columnwidth
     ]{figures/ablations.pdf}
-\caption{\textbf{Qualitative ablation study.}
-From top to bottom: baseline with direct $\alpha$-weighted interpolation, baseline with the learned gating mechanism, baseline with the frozen generative prior, and the full model combining both components.}
+\caption{\textbf{Effect of gating and generative-prior regularization.} Rows show, from top to bottom, the baseline, gating only,
+prior only, and the full model combining both components. The baseline uses direct $\alpha$-weighted interpolation of the source attention responses.}
     \label{fig:ablation}
 \end{figure}
 
  
 \input{tables/ablation_metrics}
 
-Fig. \ref{fig:ablation} and Tab. \ref{tab:ablation} isolate the contribution of each component of the architecture. The baseline, which replaces the learned gating mechanism with direct interpolation using $\alpha$, produces low-quality intermediate states and non-homogeneous changes along the morphing trajectory. Introducing the gating mechanism substantially reduces PDV, resulting in a more uniform progression between the sources, although the generated intermediates still exhibit noticeable artifacts. Conversely, introducing the frozen generative prior significantly improves visual quality, as reflected by the reduction in FID, but does not adequately preserve the consistency of the transition. Finally, the full model combines the benefits of both components, generating plausible intermediate objects while maintaining a more gradual and coherent morphing trajectory.
+Fig. \ref{fig:ablation} and Tab. \ref{tab:ablation} isolate the contribution of each component of the architecture. The baseline, which replaces the learned gating mechanism with direct interpolation using $\alpha$ and does not make use of the additional generative-prior regularization, produces low-quality intermediate states and non-homogeneous changes along the morphing trajectory. Introducing the gating mechanism substantially reduces PDV, resulting in a more uniform progression between the sources, although the generated intermediates still exhibit noticeable artifacts. Conversely, introducing the frozen generative prior significantly improves visual quality, as reflected by the reduction in FID, but does not adequately preserve the consistency of the transition. Finally, the full model combines the benefits of both components, generating plausible intermediate objects while maintaining a more gradual and coherent morphing trajectory.
 
 \subsection{Sensitivity to Source Views}
 
-Figure~\ref{fig:initialization_differences} examines the effect of source-view selection on image-conditioned morphing. For Interp3D and MorphAny3D, replacing rear-view initialization with frontal-view initialization changes the generated intermediate at $\alpha=0.5$. This illustrates how the selected views can affect the transition when source information is supplied through images.
+Figure~\ref{fig:initialization_differences} examines the effect of source-view selection on image-conditioned morphing. For Interp3D and MorphAny3D, replacing rear-view initialization with frontal-view initialization completely alter the generated intermediate at $\alpha=0.5$. %This illustrates how the selected views can affect the transition when source information is supplied through images.
 
-For fixed source assets, \methodname{} instead uses their SLat representations directly and requires no viewpoint selection for morphing. This removes the conditioning-view choice from the generation process, while retaining the geometry and appearance already represented by the source assets.
+On the contrary, for fixed source assets, \methodname{} directly uses their SLat representations and requires no viewpoint selection for morphing. This removes the conditioning-view choice from the generation process, while retaining the geometry and appearance already represented by the source assets.
 
 
 \begin{figure}[t]
@@ -114,7 +128,11 @@ For fixed source assets, \methodname{} instead uses their SLat representations d
 
 
 \subsection{Limitations and Future work}
-One limitation of \methodname{} is its difficulty in preserving fine-grained geometric and appearance details, such as the eyes shown in Fig.~\ref{fig:limitations}. Our conditioning mechanism relies on a 3D encoder applied to the SLat representations, which are themselves obtained through a separate encoding process. This additional encoding stage may introduce an information bottleneck, potentially discarding fine-scale features that are important for accurate detail reconstruction. Future work could investigate more effective conditioning mechanisms that preserve fine-grained information without requiring further compression of the 3D latent representations.
+Despite its effectiveness in generating smooth and perceptually consistent morphing trajectories, \methodname{} still presents some limitations. In particular, one limitation is its difficulty in preserving some fine-grained geometric and appearance details (see Fig.~\ref{fig:limitations}). This is probably due to the reliance on the 3D encoder which is used to compress the Slat representations introducing an information bottleneck. Future work could investigate more effective conditioning mechanisms that preserve fine-grained information without requiring further compression of the 3D latents.
+
+Finally, our method shares two main limitations with previous state-of-the-art approaches. First, the generation process relies on the manifold learned by the original TRELLIS model, limiting its ability to generalize to structures beyond those captured by its learned distribution.
+
+Second, all evaluation metrics are computed in 2D space, potentially overlooking important aspects of 3D geometry and structural consistency. Developing a comprehensive evaluation protocol operating directly in 3D space represents an important direction for future work.
 
 \begin{figure}[h]
      \centering
