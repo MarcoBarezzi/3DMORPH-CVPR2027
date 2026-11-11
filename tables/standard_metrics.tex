@@ -8,17 +8,16 @@
 \label{tab:standard}
 \begin{tabular}{lrrrrrr}
 \toprule
-Method & FID $\downarrow$ & PPL $\downarrow$  & PDV ($10^{-3}$) $\downarrow$ & \multicolumn{2}{c}{SPE $\downarrow$} & TIME (s) $\downarrow$ \\
+Method & FID $\downarrow$ & PPL $\downarrow$  & PDV ($10^{-3}$) $\downarrow$ & \multicolumn{2}{c}{SPE ($10^{-1}$) $\downarrow$} & TIME (s) $\downarrow$ \\
 \cmidrule(lr){5-6}
 & & & &  Interp Protocol & Dense Protocol &  \\
 \midrule
-DiffMorpher~\cite{zhang2024diffmorpher} & 143.68 & 3.86 & 1.81 & 0.30 & 0.41 & 148\\
-FreeMorph~\cite{cao2025freemorph} & 124.50 & 4.46 & \second{1.22} & 0.33 & 0.45 & 106 \\
-% AID-I & 101.55 & 3.52 & 1.29 & \second{0.26} & 0.34 & \best{66} \\
-AID-O~\cite{he2024aid} & 98.40 & 3.41 & 1.24 & \second{0.26} & \second{0.33} & \second{77} \\
-MorphAny3D~\cite{sun2026morphany3d} & \second{95.95} & \best{2.87} & 4.88 & 0.33 & 0.39 & 306 \\
-Interp3D~\cite{liu2026interp3d} & 96.02 & \second{3.31} & 1.40 & 0.27 & 0.35 & 235 \\
-\methodname{} (ours) & \best{95.03} & 3.58 & \best{0.85} & \best{0.25} & \best{0.31} & \best{73}  \\
+DiffMorpher~\cite{zhang2024diffmorpher} & 143.68 & 3.86 & 1.81 & 0.93 & 1.67 & 148\\
+FreeMorph~\cite{cao2025freemorph} & 124.50 & 4.46 & \second{1.22} & 1.13 & 2.03 & 106 \\
+AID-O~\cite{he2024aid} & 98.40 & 3.41 & 1.24 & \second{0.73} & \second{1.12} & \second{77} \\
+MorphAny3D~\cite{sun2026morphany3d} & \second{95.95} & \best{2.87} & 4.88 & 1.09 & 1.56 & 306 \\
+Interp3D~\cite{liu2026interp3d} & 96.02 & \second{3.31} & 1.40 & 0.75 & 1.23 & 235 \\
+\methodname{} (ours) & \best{95.03} & 3.58 & \best{0.85} & \best{0.66} & \best{1.03} & \best{73}  \\
 \bottomrule
 \end{tabular}
 \end{table*}

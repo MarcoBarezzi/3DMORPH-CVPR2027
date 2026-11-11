@@ -17,35 +17,31 @@
     \resizebox{\columnwidth}{!}{%
         \begin{tabular}{lccrrrr}
             \toprule
-            & \multicolumn{2}{c}{Active components}
-            & \multicolumn{4}{c}{Measurements} \\
-            \cmidrule(lr){2-3}
-            \cmidrule(lr){4-7}
 
-            \textbf{Variant}
-            & \textbf{Gate}
-            & \textbf{Prior}
-            & \textbf{FID} $\downarrow$
-            & \textbf{PPL}
-            & \textbf{PDV} ($10^{-3})\downarrow$
-            & \textbf{SPE} $\downarrow$ \\
+            Variant
+            & Gate
+            & Prior
+            & ID $\downarrow$
+            & PPL
+            & PDV ($10^{-3})\downarrow$
+            & SPE ($10^{-1}) \downarrow$ \\
 
             \midrule
             Baseline
             & -- & --
-            & 97.54 & 3.55 & 0.90 & 0.27 \\
+            & 97.54 & 3.55 & 0.90 & 0.72 \\
 
             Gate only
             & $\checkmark$ & --
-            & 102.34 & 3.54 & 0.84 & 0.26 \\
+            & 102.34 & 3.54 & 0.84 & 0.68 \\
 
             Prior only
             & -- & $\checkmark$
-            & 92.17 & 3.58 & 0.91 & 0.27 \\
+            & 92.17 & 3.58 & 0.91 & 0.70 \\
 
             \textbf{Full model}
             & $\checkmark$ & $\checkmark $
-            & 95.03 & 3.58 & 0.85 & 0.25 \\
+            & 95.03 & 3.58 & 0.85 & 0.66 \\
 
             \bottomrule
         \end{tabular}%
