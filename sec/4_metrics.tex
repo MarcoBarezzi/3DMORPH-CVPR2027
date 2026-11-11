@@ -60,7 +60,7 @@ For each interpolation coefficient, the target normalized distances to $S_1$ and
 \end{equation}
 SPE aggregates this deviation over the interpolation trajectory:
 \begin{equation}
- \spe=\sqrt{\int_0^1 q(\alpha)\,d\alpha}.
+ \spe=\int_0^1 q(\alpha)\,d\alpha.
  \label{eq:spe}
 \end{equation}
 We approximate the integral using the trapezoidal rule over the sampled coefficients and average the resulting scores across object pairs. Lower SPE indicates closer agreement with the reference progression.

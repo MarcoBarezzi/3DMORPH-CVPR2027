@@ -20,9 +20,7 @@ Evaluating morphing requires assessing both the quality of intermediate states a
 
 The main contributions of this paper are as follows:
 \begin{itemize}
-    \item We introduce \methodname{}, a teacher-student framework that learns textured 3D morphing from training-free pseudo-trajectories, without requiring exact ground-truth morphing sequences. \methodname{} is conditioned directly on the 3D representations of both source objects using a learned attention fusion mechanism called Gate-Adapted Morphing Cross-Attention (GAMCA) to adapt their contributions throughout the transition.
-    % \item We propose a two-stage morphing architecture that is conditioned directly on the 3D representations of both source objects, using a learned attention fusion mechanism called Gate-Adapted Morphing Cross-Attention (GAMCA) to adapt their contributions throughout the transition.
-
+    \item We introduce \methodname{}, a teacher-student framework that learns textured 3D morphing from training-free pseudo-trajectories, without requiring exact ground-truth morphing sequences. \methodname{} is conditioned directly on the 3D representations of both source objects using a learned attention fusion mechanism called Gate-Adapted Morphing Cross-Attention (GAMCA).
     \item We introduce a generative regularization strategy based on a frozen TRELLIS prior, complementing teacher supervision to encourage plausible intermediate states.
 
     \item We propose Source Profile Error (SPE), a source-normalized metric that evaluates progression relative to both source assets, complementing existing quality and smoothness metrics.
